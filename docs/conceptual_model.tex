@@ -1,0 +1,264 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{natbib}
+
+\title{\textbf{Adaptive Memory in Norm Formation: A Conceptual Model}}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+Two key findings from behavioral and neural sciences motivate this model. First, neuroimaging studies show that the anterior cingulate cortex tracks environmental volatility and modulates learning rate accordingly \citep{behrens2007learning}. In volatile environments, humans upweight recent observations and downweight distant history—effectively shortening their ``memory window.'' This allows rapid adaptation when the world is changing, at the cost of stability when it is not. Second, the Experience-Weighted Attraction (EWA) model demonstrates that players in strategic settings do not use fixed learning rules \citep{camerer1999ewa}. Instead, they adaptively adjust how much past experience influences current choices, with the decay of old information accelerating after coordination failures.
+
+We unify these insights into a model where memory window size is endogenous. Prediction success increases trust, lengthening the effective memory window and promoting belief stability. Prediction failure decreases trust, shortening the window and enabling adaptability. Crucially, action selection uses simple probability matching—trust affects only cognition (memory), not behavior directly. This creates a ``cognitive lock-in'' mechanism: once a norm begins to form, agents' trust increases, their memory windows expand, and their beliefs become resistant to reversal.
+
+Our central question is: how does trust-driven memory adaptation affect the emergence and stability of social norms?
+
+\section{Model Setup}
+
+\subsection{Environment}
+
+\begin{itemize}[itemsep=2pt]
+    \item $N$ agents (even), strategy set $S = \{A, B\}$
+    \item Pure coordination game: payoff 1 if both choose same strategy, 0 otherwise
+    \item Each time step $t$: agents randomly paired, simultaneous strategy choice
+    \item Agents are anonymous: only partner's strategy is observed, not identity
+\end{itemize}
+
+\subsection{Agent State}
+
+Each agent $i$ at time $t$ maintains two state variables:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{State} & \textbf{Symbol} & \textbf{Definition} \\
+\midrule
+Memory & $M_i(t)$ & Ordered list of recent interactions \\
+Trust & $T_i(t) \in [0, 1]$ & Confidence in environment predictability \\
+\midrule
+\multicolumn{3}{l}{\textit{Derived quantities:}} \\
+Belief & $\mathbf{b}_i(t) = [b_A, b_B]$ & Computed from $M_i(t)$ \\
+Window & $w_i(t) \in [\text{base}, \text{max}]$ & Computed from $T_i(t)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Memory Content}
+
+Each interaction record contains:
+\begin{equation}
+\text{Interaction} = (\text{tick}, \underbrace{s^*_{\text{partner}}}_{\text{observed}}, s_{\text{self}}, \text{success}, \text{payoff})
+\end{equation}
+
+Memory $M_i(t)$ stores up to $\text{max\_size}$ most recent interactions (FIFO queue).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{conceptual_model_v3.png}
+\caption{Agent architecture showing the cognitive lock-in mechanism. Trust is the sole state variable that modulates memory window size. Action selection uses probability matching (behaviorally neutral). The feedback loop operates through cognition, not behavior.}
+\label{fig:conceptual}
+\end{figure}
+
+\section{One Interaction Cycle}
+
+\subsection{Step 1: Belief Formation}
+
+Compute belief from memory by counting observed partner strategies within the effective window:
+\begin{equation}
+b_A = \frac{n_A}{|M'_i(t)|}, \quad b_B = 1 - b_A
+\end{equation}
+where $n_A$ is the count of strategy $A$ in effective memory $M'_i(t)$, and $|M'_i(t)|$ is the window size.
+
+\textbf{Initialization}: When memory is empty, belief defaults to $[0.5, 0.5]$.
+
+\subsection{Step 2: Prediction}
+
+Agent predicts partner's strategy as the most likely according to belief:
+\begin{equation}
+\hat{s}_i = \arg\max_{s \in \{A,B\}} b_s
+\end{equation}
+
+\subsection{Step 3: Action Selection (Probability Matching)}
+
+Agent chooses own strategy by sampling from belief distribution:
+\begin{equation}
+P(s_i = A) = b_A, \quad P(s_i = B) = b_B
+\end{equation}
+
+This is \textbf{behaviorally neutral}: if the population is 70\% strategy $A$, the agent chooses $A$ with 70\% probability. There is no direct amplification at the behavioral level.
+
+\subsection{Step 4: Interaction}
+
+Agent $i$ paired with agent $j$. Both choose simultaneously. Agent $i$ observes:
+\begin{itemize}[itemsep=0pt]
+    \item Partner's actual strategy: $s^*_j$
+    \item Coordination success: $\text{success} = \mathbf{1}[s_i = s^*_j]$
+\end{itemize}
+
+\subsection{Step 5: Trust Update}
+
+Compare prediction $\hat{s}_i$ with observation $s^*_j$:
+\begin{equation}
+T_i(t+1) = \begin{cases}
+T_i(t) + \alpha \cdot (1 - T_i(t)) & \text{if } \hat{s}_i = s^*_j \quad \text{(correct)} \\[6pt]
+T_i(t) \cdot (1 - \beta) & \text{if } \hat{s}_i \neq s^*_j \quad \text{(wrong)}
+\end{cases}
+\end{equation}
+
+\textbf{Key asymmetry} \citep{slovic1993perceived}:
+\begin{itemize}[itemsep=0pt]
+    \item Trust builds slowly (additive, saturates at 1)
+    \item Trust breaks quickly (multiplicative, proportional to current level)
+\end{itemize}
+
+Higher trust means more ``to lose''—a single failure causes greater absolute loss when trust is high.
+
+\subsection{Step 6: Memory Update}
+
+Append new interaction to memory. If $|M_i| > \text{max\_size}$: remove oldest record (FIFO).
+
+\section{Trust-Memory Linkage}
+
+For dynamic memory, the effective window size depends on trust:
+\begin{align}
+w_i(t) &= \text{base} + \lfloor T_i(t) \times (\text{max} - \text{base}) \rfloor
+\end{align}
+
+Records in $M'_i(t) = \text{last } w_i(t) \text{ records}$ are equally weighted. The upper bound $\text{max} \approx 6$ reflects working memory limits \citep{miller1956magical}.
+
+\section{The Cognitive Lock-in Mechanism}
+
+\subsection{Trust Steady State}
+
+At equilibrium, $\mathbb{E}[\Delta T] = 0$. Let $p$ be the prediction accuracy (approximately equal to the majority fraction). The steady-state trust is:
+\begin{equation}
+T^* = \frac{p \alpha}{p \alpha + (1-p) \beta}
+\end{equation}
+
+With $\alpha = 0.1$, $\beta = 0.3$:
+
+\begin{center}
+\begin{tabular}{ccc}
+\toprule
+Majority $p$ & Trust $T^*$ & Window \\
+\midrule
+50\% & 0.25 & small \\
+70\% & 0.44 & medium \\
+90\% & 0.75 & large \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The Feedback Loop}
+
+Although action selection is behaviorally neutral (no amplification), trust creates \textbf{asymmetric resilience}:
+
+\begin{center}
+Majority forms (by drift) $\;\to\;$ Prediction accuracy $\uparrow$ $\;\to\;$ Trust $\uparrow$ $\;\to\;$ Window $\uparrow$ $\;\to\;$ Beliefs stabilize
+\end{center}
+
+Once beliefs stabilize with a large window, random fluctuations are averaged out. The norm becomes \textbf{resistant to reversal}—not because agents amplify the majority behaviorally, but because their cognitive state (trust, memory) locks in the current equilibrium.
+
+\subsection{Contrast with Behavioral Amplification}
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Mechanism & Behavioral Amplification & Cognitive Lock-in \\
+\midrule
+Action selection & Biased toward majority & Neutral (probability matching) \\
+Convergence driver & Positive feedback in behavior & Asymmetric resilience \\
+Speed & Fast & Slow (random drift) \\
+Attribution & Mixed & Clean (only memory matters) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Memory Types}
+
+\subsection{Fixed Memory}
+\begin{equation}
+M'_i(t) = \text{last } k \text{ records}, \quad k \text{ constant}
+\end{equation}
+
+\subsection{Decay Memory}
+\begin{equation}
+M'_i(t) = M_i(t) \text{ with weights } w_r = \lambda^{\text{age}(r)}, \; \lambda \in (0,1)
+\end{equation}
+
+\subsection{Dynamic Memory (Core Innovation)}
+\begin{equation}
+M'_i(t) = \text{last } w_i(t) \text{ records}, \quad w_i(t) = f(T_i(t))
+\end{equation}
+
+\section{Parameters}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Default} & \textbf{Meaning} \\
+\midrule
+Initial trust & $T_0$ & 0.5 & Starting confidence \\
+Trust increase rate & $\alpha$ & 0.1 & Trust gain on correct prediction \\
+Trust decay rate & $\beta$ & 0.3 & Trust loss on wrong prediction \\
+Memory base & base & 2 & Minimum window (trust=0) \\
+Memory max & max & 6 & Maximum window (trust=1) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Theoretical Predictions}
+
+\begin{enumerate}
+    \item \textbf{Dynamic Memory Enables Convergence}: Through cognitive lock-in, dynamic memory allows norms to stabilize even without behavioral amplification.
+    \item \textbf{Asymmetric Resilience}: Once formed, norms under dynamic memory are harder to reverse because high trust → large window → stable beliefs.
+    \item \textbf{Clean Attribution}: Any observed norm emergence can be attributed solely to memory dynamics, not to action selection biases.
+\end{enumerate}
+
+\section{Open Questions}
+
+\begin{enumerate}
+    \item \textbf{Speed vs. Purity Trade-off}: How much slower is convergence under probability matching compared to $\epsilon$-greedy? Is the clean attribution worth it?
+    \item \textbf{Heterogeneity}: What if agents have different $\alpha$, $\beta$? Do ``trusting'' agents anchor norms?
+    \item \textbf{Perturbation Response}: How do established norms respond to sudden environmental changes?
+\end{enumerate}
+
+\bibliographystyle{apalike}
+\begin{thebibliography}{9}
+
+\bibitem[Behrens et al.(2007)]{behrens2007learning}
+Behrens, T.~E.~J., Woolrich, M.~W., Walton, M.~E., \& Rushworth, M.~F.~S. (2007).
+Learning the value of information in an uncertain world.
+\textit{Nature Neuroscience}, 10(9), 1214--1221.
+
+\bibitem[Camerer \& Ho(1999)]{camerer1999ewa}
+Camerer, C.~F., \& Ho, T.~H. (1999).
+Experience-weighted attraction learning in normal form games.
+\textit{Econometrica}, 67(4), 827--874.
+
+\bibitem[Miller(1956)]{miller1956magical}
+Miller, G.~A. (1956).
+The magical number seven, plus or minus two.
+\textit{Psychological Review}, 63(2), 81--97.
+
+\bibitem[Slovic(1993)]{slovic1993perceived}
+Slovic, P. (1993).
+Perceived risk, trust, and democracy.
+\textit{Risk Analysis}, 13(6), 675--682.
+
+\end{thebibliography}
+
+\end{document}
