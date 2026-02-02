@@ -1,0 +1,262 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\title{\textbf{Adaptive Memory in Norm Formation: A Conceptual Model}}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+Two key findings from behavioral and neural sciences motivate this model. First, neuroimaging studies show that the anterior cingulate cortex tracks environmental volatility and modulates learning rate accordingly \citep{behrens2007learning}. In volatile environments, humans upweight recent observations and downweight distant history—effectively shortening their ``memory window.'' This allows rapid adaptation when the world is changing, at the cost of stability when it is not. Second, the Experience-Weighted Attraction (EWA) model demonstrates that players in strategic settings do not use fixed learning rules \citep{camerer1999ewa}. Instead, they adaptively adjust how much past experience influences current choices, with the decay of old information accelerating after coordination failures.
+
+We unify these insights into a model where memory window size is endogenous. Prediction success reduces uncertainty, lengthening the effective memory window and promoting behavioral stability. Prediction failure increases uncertainty, shortening the window and enabling adaptability. This creates dual feedback loops governing norm emergence. Our central question is: how does uncertainty-driven memory adaptation affect the speed, stability, and flexibility of norm formation?
+
+\section{Model Setup}
+
+\subsection{Environment}
+
+\begin{itemize}[itemsep=2pt]
+    \item $N$ agents (even), strategy set $S = \{A, B\}$ (encoded as $\{0, 1\}$)
+    \item Pure coordination game: payoff 1 if both choose same strategy, 0 otherwise
+    \item Each time step $t$: agents randomly paired, simultaneous strategy choice
+\end{itemize}
+
+\subsection{Agent State}
+
+Each agent $i$ at time $t$ maintains:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{State} & \textbf{Symbol} & \textbf{Definition} \\
+\midrule
+Memory & $M_i(t)$ & Ordered list of recent Interaction records \\
+Temperature & $\tau_i(t) \in [\tau_{min}, \tau_{max}]$ & Decision uncertainty \\
+\midrule
+\multicolumn{3}{l}{\textit{Derived quantities (not stored):}} \\
+Belief & $\mathbf{b}_i(t) = [b_A, b_B]$ & Computed from $M_i(t)$ \\
+Trust & $\text{trust}_i(t) \in [0,1]$ & Computed from $\tau_i(t)$ \\
+Window & $w_i(t) \in [\text{base}, \text{max}]$ & Computed from $\text{trust}_i(t)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Memory Content}
+
+Each interaction record contains:
+\begin{equation}
+\text{Interaction} = (\text{tick}, \underbrace{s^*_{\text{partner}}}_{\text{observed}}, s_{\text{self}}, \text{success}, \text{payoff})
+\end{equation}
+
+Agents are anonymous: they observe only their partner's strategy, not their identity.
+
+Memory $M_i(t)$ stores up to $\text{max\_size}$ most recent interactions (FIFO queue).
+
+\section{One Interaction Cycle}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{conceptual_model_v2.png}
+\caption{Agent architecture and feedback structure.}
+\label{fig:conceptual}
+\end{figure}
+
+\subsection{Step 1: Belief Formation}
+
+Compute belief from memory by counting observed \textbf{partner strategies}:
+\begin{equation}
+b_A = \frac{n_A}{|M'_i(t)|}, \quad b_B = 1 - b_A
+\end{equation}
+where $n_A$ is the count of strategy $A$ in effective memory $M'_i(t)$.
+
+\textbf{Initialization}: Memory starts with $k$ neutral \textit{placeholders} (where $k$ = initial window size). Each placeholder contributes 0.5 to both $n_A$ and $n_B$ when counting:
+\begin{equation}
+b_A(0) = \frac{0.5 \times k}{k} = 0.5
+\end{equation}
+
+As real observations arrive, they \textbf{replace} placeholders via FIFO. After $k$ real interactions, all placeholders are gone and belief is based purely on observed data.
+
+\subsection{Step 2: Prediction}
+
+Agent predicts partner's strategy as the most likely according to belief:
+\begin{equation}
+\hat{s}_i = \arg\max_{s \in \{A,B\}} b_s
+\end{equation}
+
+\subsection{Step 3: Action Selection}
+
+Agent chooses own strategy via \textbf{softmax} with temperature $\tau$:
+\begin{equation}
+P(s_i = A) = \frac{\exp(b_A / \tau_i)}{\exp(b_A / \tau_i) + \exp(b_B / \tau_i)}
+\end{equation}
+
+\begin{itemize}[itemsep=0pt]
+    \item $\tau \to 0$: deterministic (choose $\arg\max$)
+    \item $\tau \to \infty$: uniform random
+\end{itemize}
+
+\subsection{Step 4: Interaction}
+
+Agent $i$ paired with agent $j$. Both choose simultaneously. Agent $i$ observes:
+\begin{itemize}[itemsep=0pt]
+    \item Partner's actual strategy: $s^*_j$
+    \item Coordination success: $\text{success} = \mathbf{1}[s_i = s^*_j]$
+    \item Payoff: $\pi_i = \text{success}$
+\end{itemize}
+
+\subsection{Step 5: Temperature Update}
+
+Compare prediction $\hat{s}_i$ with observation $s^*_j$:
+\begin{equation}
+\tau_i(t+1) = \begin{cases}
+\max\Big(\tau_{min}, \; \tau_i(t) \cdot (1 - \alpha)\Big) & \text{if } \hat{s}_i = s^*_j \quad \text{(correct)} \\[6pt]
+\min\Big(\tau_{max}, \; \tau_i(t) + \beta\Big) & \text{if } \hat{s}_i \neq s^*_j \quad \text{(wrong)}
+\end{cases}
+\end{equation}
+
+\textbf{Key asymmetry}: Cooling is multiplicative (slow), heating is additive (fast). This reflects empirical trust dynamics \citep{slovic1993perceived}.
+
+\subsection{Step 6: Memory Update}
+
+Append new interaction to memory:
+\begin{equation}
+M_i(t+1) = M_i(t) \cup \{(\text{tick}=t, \text{partner}=j, s^*_j, s_i, \text{success}, \pi_i)\}
+\end{equation}
+If $|M_i| > \text{max\_size}$: remove oldest record (FIFO).
+
+\subsection{Step 7: Belief Update}
+
+Recompute $\mathbf{b}_i(t+1)$ from updated $M_i(t+1)$ using Eq.~(2). Return to Step 1.
+
+\section{Memory Types}
+\label{sec:memory}
+
+The three memory types differ in how they define \textbf{effective memory} $M'_i(t)$:
+
+\subsection{Fixed Memory}
+
+\begin{equation}
+M'_i(t) = \text{last } k \text{ records in } M_i(t)
+\end{equation}
+Window size $k$ is constant. All records equally weighted.
+
+\subsection{Decay Memory}
+
+\begin{equation}
+M'_i(t) = M_i(t) \quad \text{with weights } w_r = \lambda^{\text{age}(r)}, \; \lambda \in (0,1)
+\end{equation}
+Recent records weighted more. Belief becomes weighted average:
+\begin{equation}
+b_A = \frac{\sum_r w_r \cdot \mathbf{1}[r.\text{partner\_strategy}=A]}{\sum_r w_r}
+\end{equation}
+
+\subsection{Dynamic Memory (Core Innovation)}
+
+Window size adapts with trust:
+\begin{align}
+\text{trust}_i(t) &= 1 - \frac{\tau_i(t) - \tau_{min}}{\tau_{max} - \tau_{min}} \\[4pt]
+w_i(t) &= \text{base} + \lfloor \text{trust}_i(t) \times (\text{max} - \text{base}) \rfloor \\[4pt]
+M'_i(t) &= \text{last } w_i(t) \text{ records in } M_i(t)
+\end{align}
+
+Records in $M'_i(t)$ equally weighted. Upper bound $\text{max} \approx 6$ reflects working memory limits \citep{miller1956magical}.
+
+\section{Feedback Loops}
+
+\subsection{Positive Loop (Reinforcing)}
+
+\begin{center}
+$\hat{s} = s^*$ $\;\to\;$ $\tau \downarrow$ $\;\to\;$ trust $\uparrow$ $\;\to\;$ window $\uparrow$ $\;\to\;$ stable $\mathbf{b}$ $\;\to\;$ consistent $s$
+\end{center}
+
+\textbf{Closing the loop} (population-level): Under random matching, when multiple agents independently develop consistent behavior toward strategy $s$, the population converges. Once a majority plays $s$, any agent's randomly matched partner is likely to play $s$, making predictions accurate ($\hat{s} = s^*$). This is an \textit{emergent} property: individual consistency $\to$ population homogeneity $\to$ predictable partners $\to$ correct predictions.
+
+\subsection{Negative Loop (Balancing)}
+
+\begin{center}
+$\hat{s} \neq s^*$ $\;\to\;$ $\tau \uparrow$ $\;\to\;$ trust $\downarrow$ $\;\to\;$ window $\downarrow$ $\;\to\;$ responsive $\mathbf{b}$ $\;\to\;$ exploratory $s$
+\end{center}
+
+\textbf{Closing the loop}: Exploratory behavior has two outcomes:
+\begin{itemize}[itemsep=2pt]
+    \item \textit{Success}: Agent happens to match partner's strategy $\to$ $\hat{s} = s^*$ $\to$ enters positive loop
+    \item \textit{Failure}: Mismatch continues $\to$ $\tau$ stays high $\to$ agent keeps exploring until success or population shifts
+\end{itemize}
+
+The negative loop does not cycle indefinitely—it either transitions to the positive loop (when exploration succeeds) or maintains flexibility until environmental conditions change.
+
+\section{Parameters}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Default} & \textbf{Meaning} \\
+\midrule
+Initial temperature & $\tau_0$ & 1.0 & Starting uncertainty \\
+Min temperature & $\tau_{min}$ & 0.1 & Maximum confidence \\
+Max temperature & $\tau_{max}$ & 2.0 & Maximum uncertainty \\
+Cooling rate & $\alpha$ & 0.1 & $\tau$ decrease factor on correct prediction \\
+Heating penalty & $\beta$ & 0.3 & $\tau$ increase on wrong prediction \\
+Memory base & base & 2 & Minimum window (trust=0) \\
+Memory max & max & 6 & Maximum window (trust=1) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Theoretical Predictions}
+
+\begin{enumerate}
+    \item \textbf{Faster Convergence}: Dynamic memory amplifies positive feedback $\Rightarrow$ faster norm emergence.
+    \item \textbf{Greater Resilience}: High-trust states have large windows $\Rightarrow$ inertia against perturbations.
+    \item \textbf{Adaptive Flexibility}: Environmental change triggers $\tau \uparrow$, window $\downarrow$ $\Rightarrow$ faster re-equilibration.
+\end{enumerate}
+
+\section{Open Questions}
+
+\begin{enumerate}
+    \item \textbf{Parameter Trade-offs}: How do $\alpha$ and $\beta$ jointly determine convergence speed vs. stability?
+    \item \textbf{Heterogeneity}: What if agents have different $\tau_{min}$, $\tau_{max}$? Do ``confident'' agents anchor norms?
+    \item \textbf{Network Effects}: How does non-random matching (clustered, scale-free) alter feedback dynamics?
+\end{enumerate}
+
+\bibliographystyle{apalike}
+\begin{thebibliography}{9}
+
+\bibitem[Behrens et al.(2007)]{behrens2007learning}
+Behrens, T.~E.~J., Woolrich, M.~W., Walton, M.~E., \& Rushworth, M.~F.~S. (2007).
+Learning the value of information in an uncertain world.
+\textit{Nature Neuroscience}, 10(9), 1214--1221.
+
+\bibitem[Camerer \& Ho(1999)]{camerer1999ewa}
+Camerer, C.~F., \& Ho, T.~H. (1999).
+Experience-weighted attraction learning in normal form games.
+\textit{Econometrica}, 67(4), 827--874.
+
+\bibitem[Miller(1956)]{miller1956magical}
+Miller, G.~A. (1956).
+The magical number seven, plus or minus two.
+\textit{Psychological Review}, 63(2), 81--97.
+
+\bibitem[Slovic(1993)]{slovic1993perceived}
+Slovic, P. (1993).
+Perceived risk, trust, and democracy.
+\textit{Risk Analysis}, 13(6), 675--682.
+
+\end{thebibliography}
+
+\end{document}

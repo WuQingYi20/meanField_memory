@@ -1,0 +1,7 @@
+name,num_agents,memory_type,memory_size,decision_mode,initial_trust,alpha,beta,random_seed,converged,convergence_tick,final_tick,final_majority_strategy,final_majority_fraction,final_mean_trust,final_mean_memory_window,run_time_seconds
+cognitive_lockin_trial0,10,dynamic,5,cognitive_lockin,0.5,0.1,0.3,0,False,,50,0,0.9,0.6346218989888281,4.0,0.04799795150756836
+cognitive_lockin_trial1,10,dynamic,5,cognitive_lockin,0.5,0.1,0.3,1,False,,50,1,1.0,0.8604407297746934,5.0,0.046549081802368164
+dual_feedback_trial0,10,dynamic,5,dual_feedback,0.5,0.1,0.3,0,False,,50,0,0.5,0.09182219138050687,2.0,0.0429990291595459
+dual_feedback_trial1,10,dynamic,5,dual_feedback,0.5,0.1,0.3,1,False,,50,1,0.7,0.13599366735789467,2.1,0.04101300239562988
+epsilon_greedy_trial0,10,dynamic,5,epsilon_greedy,0.5,0.1,0.3,0,False,,50,0,0.5,0.32093848153328863,2.6,0.03052806854248047
+epsilon_greedy_trial1,10,dynamic,5,epsilon_greedy,0.5,0.1,0.3,1,False,,50,0,0.6,0.335657238240165,2.8,0.033998966217041016

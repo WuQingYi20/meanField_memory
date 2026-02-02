@@ -2,13 +2,14 @@
 Experiment runner for batch simulations and parameter sweeps.
 
 Supports parallel execution, parameter sweeps, and result aggregation.
+Supports multiple decision modes: cognitive_lockin, dual_feedback, epsilon_greedy.
 """
 
 import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable, Tuple
+from typing import List, Dict, Any, Optional, Callable, Tuple, Union
 from dataclasses import dataclass, asdict
 from itertools import product
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -19,6 +20,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.environment import SimulationEnvironment, SimulationResult
+from src.decision import DecisionMode
 
 
 @dataclass
@@ -32,11 +34,21 @@ class ExperimentConfig:
     decay_rate: float = 0.9
     dynamic_base: int = 2
     dynamic_max: int = 6
+    # Decision mode
+    decision_mode: str = "cognitive_lockin"  # Use string for serialization
+    # DUAL_FEEDBACK params
     initial_tau: float = 1.0
     tau_min: float = 0.1
     tau_max: float = 2.0
     cooling_rate: float = 0.1
     heating_penalty: float = 0.3
+    # COGNITIVE_LOCKIN/EPSILON_GREEDY params
+    initial_trust: float = 0.5
+    alpha: float = 0.1
+    beta: float = 0.3
+    # EPSILON_GREEDY specific
+    exploration_mode: str = "random"
+    # Simulation settings
     max_ticks: int = 1000
     random_seed: Optional[int] = None
     convergence_threshold: float = 0.95
@@ -53,8 +65,8 @@ class ExperimentResult:
     final_tick: int
     final_majority_strategy: int
     final_majority_fraction: float
-    final_mean_tau: float
     final_mean_trust: float
+    final_mean_memory_window: float
     run_time_seconds: float
 
 
@@ -70,6 +82,9 @@ def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
     """
     start_time = time.time()
 
+    # Convert string to DecisionMode enum
+    decision_mode = DecisionMode(config.decision_mode)
+
     env = SimulationEnvironment(
         num_agents=config.num_agents,
         memory_type=config.memory_type,
@@ -77,11 +92,19 @@ def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
         decay_rate=config.decay_rate,
         dynamic_base=config.dynamic_base,
         dynamic_max=config.dynamic_max,
+        decision_mode=decision_mode,
+        # DUAL_FEEDBACK params
         initial_tau=config.initial_tau,
         tau_min=config.tau_min,
         tau_max=config.tau_max,
         cooling_rate=config.cooling_rate,
         heating_penalty=config.heating_penalty,
+        # COGNITIVE_LOCKIN/EPSILON_GREEDY params
+        initial_trust=config.initial_trust,
+        alpha=config.alpha,
+        beta=config.beta,
+        exploration_mode=config.exploration_mode,
+        # Other settings
         convergence_threshold=config.convergence_threshold,
         convergence_window=config.convergence_window,
         random_seed=config.random_seed,
@@ -98,8 +121,8 @@ def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
         final_tick=result.final_state.get("final_tick", config.max_ticks),
         final_majority_strategy=result.final_state.get("final_majority_strategy", 0),
         final_majority_fraction=result.final_state.get("final_majority_fraction", 0.5),
-        final_mean_tau=result.final_state.get("final_mean_tau", 1.0),
         final_mean_trust=result.final_state.get("final_mean_trust", 0.5),
+        final_mean_memory_window=result.final_state.get("final_mean_memory_window", 5.0),
         run_time_seconds=run_time,
     )
 
@@ -198,20 +221,18 @@ class ExperimentRunner:
                 "num_agents": result.config.num_agents,
                 "memory_type": result.config.memory_type,
                 "memory_size": result.config.memory_size,
-                "decay_rate": result.config.decay_rate,
-                "dynamic_base": result.config.dynamic_base,
-                "dynamic_max": result.config.dynamic_max,
-                "initial_tau": result.config.initial_tau,
-                "cooling_rate": result.config.cooling_rate,
-                "heating_penalty": result.config.heating_penalty,
+                "decision_mode": result.config.decision_mode,
+                "initial_trust": result.config.initial_trust,
+                "alpha": result.config.alpha,
+                "beta": result.config.beta,
                 "random_seed": result.config.random_seed,
                 "converged": result.converged,
                 "convergence_tick": result.convergence_tick,
                 "final_tick": result.final_tick,
                 "final_majority_strategy": result.final_majority_strategy,
                 "final_majority_fraction": result.final_majority_fraction,
-                "final_mean_tau": result.final_mean_tau,
                 "final_mean_trust": result.final_mean_trust,
+                "final_mean_memory_window": result.final_mean_memory_window,
                 "run_time_seconds": result.run_time_seconds,
             }
             rows.append(row)
@@ -246,8 +267,8 @@ class ExperimentRunner:
                 "final_tick": result.final_tick,
                 "final_majority_strategy": result.final_majority_strategy,
                 "final_majority_fraction": result.final_majority_fraction,
-                "final_mean_tau": result.final_mean_tau,
                 "final_mean_trust": result.final_mean_trust,
+                "final_mean_memory_window": result.final_mean_memory_window,
                 "run_time_seconds": result.run_time_seconds,
             }
             json_data.append(item)
@@ -435,8 +456,197 @@ def run_agent_count_sweep(
     return df
 
 
+def run_decision_mode_comparison(
+    num_agents: int = 100,
+    memory_type: str = "dynamic",
+    max_ticks: int = 1000,
+    n_trials: int = 10,
+    output_dir: str = "data/experiments",
+    n_workers: int = 4,
+) -> pd.DataFrame:
+    """
+    Compare different decision modes.
+
+    Args:
+        num_agents: Number of agents
+        memory_type: Memory type to use
+        max_ticks: Maximum ticks
+        n_trials: Trials per decision mode
+        output_dir: Output directory
+        n_workers: Parallel workers
+
+    Returns:
+        DataFrame with comparison results
+    """
+    decision_modes = ["cognitive_lockin", "dual_feedback", "epsilon_greedy"]
+
+    configs = []
+    for mode in decision_modes:
+        for trial in range(n_trials):
+            config = ExperimentConfig(
+                name=f"{mode}_trial{trial}",
+                num_agents=num_agents,
+                memory_type=memory_type,
+                decision_mode=mode,
+                max_ticks=max_ticks,
+                random_seed=trial,
+            )
+            configs.append(config)
+
+    runner = ExperimentRunner(output_dir=output_dir, n_workers=n_workers)
+    runner.run_experiments(configs)
+
+    df = runner.get_results_dataframe()
+    runner.save_results("decision_mode_comparison")
+
+    # Print summary
+    print("\n=== Decision Mode Comparison ===")
+    summary = df.groupby("decision_mode").agg({
+        "converged": "mean",
+        "convergence_tick": "mean",
+        "final_majority_fraction": "mean",
+        "final_mean_trust": "mean",
+    }).round(3)
+    print(summary)
+
+    return df
+
+
+def run_full_comparison(
+    num_agents: int = 100,
+    max_ticks: int = 1000,
+    n_trials: int = 10,
+    output_dir: str = "data/experiments",
+    n_workers: int = 4,
+) -> pd.DataFrame:
+    """
+    Compare all combinations of memory types and decision modes.
+
+    Args:
+        num_agents: Number of agents
+        max_ticks: Maximum ticks
+        n_trials: Trials per configuration
+        output_dir: Output directory
+        n_workers: Parallel workers
+
+    Returns:
+        DataFrame with comparison results
+    """
+    memory_types = ["fixed", "decay", "dynamic"]
+    decision_modes = ["cognitive_lockin", "dual_feedback", "epsilon_greedy"]
+
+    configs = []
+    for memory_type in memory_types:
+        for mode in decision_modes:
+            for trial in range(n_trials):
+                config = ExperimentConfig(
+                    name=f"{memory_type}_{mode}_trial{trial}",
+                    num_agents=num_agents,
+                    memory_type=memory_type,
+                    decision_mode=mode,
+                    max_ticks=max_ticks,
+                    random_seed=trial,
+                )
+                configs.append(config)
+
+    runner = ExperimentRunner(output_dir=output_dir, n_workers=n_workers)
+    runner.run_experiments(configs)
+
+    df = runner.get_results_dataframe()
+    runner.save_results("full_comparison")
+
+    # Print summary
+    print("\n=== Full Comparison (Memory x Decision Mode) ===")
+    summary = df.groupby(["memory_type", "decision_mode"]).agg({
+        "converged": "mean",
+        "convergence_tick": "mean",
+        "final_majority_fraction": "mean",
+        "final_mean_trust": "mean",
+    }).round(3)
+    print(summary)
+
+    return df
+
+
+def run_trust_parameter_comparison(
+    num_agents: int = 100,
+    memory_type: str = "dynamic",
+    max_ticks: int = 1000,
+    n_trials: int = 10,
+    output_dir: str = "data/experiments",
+    n_workers: int = 4,
+) -> pd.DataFrame:
+    """
+    Compare different alpha/beta parameter settings for CognitiveLockIn mode.
+
+    Tests:
+    - Asymmetric (default): alpha=0.1, beta=0.3 (Slovic 1993)
+    - Symmetric: alpha=0.2, beta=0.2 (faster convergence)
+    - Sensitive: alpha=0.3, beta=0.4 (high responsiveness)
+
+    Args:
+        num_agents: Number of agents
+        memory_type: Memory type to use
+        max_ticks: Maximum ticks
+        n_trials: Trials per configuration
+        output_dir: Output directory
+        n_workers: Parallel workers
+
+    Returns:
+        DataFrame with comparison results
+    """
+    parameter_sets = [
+        ("asymmetric", 0.1, 0.3),   # Default (Slovic 1993)
+        ("symmetric", 0.2, 0.2),    # Fast convergence
+        ("sensitive", 0.3, 0.4),    # High responsiveness
+    ]
+
+    configs = []
+    for name, alpha, beta in parameter_sets:
+        for trial in range(n_trials):
+            config = ExperimentConfig(
+                name=f"{name}_trial{trial}",
+                num_agents=num_agents,
+                memory_type=memory_type,
+                decision_mode="cognitive_lockin",
+                alpha=alpha,
+                beta=beta,
+                max_ticks=max_ticks,
+                random_seed=trial,
+            )
+            configs.append(config)
+
+    runner = ExperimentRunner(output_dir=output_dir, n_workers=n_workers)
+    runner.run_experiments(configs)
+
+    df = runner.get_results_dataframe()
+    runner.save_results("trust_parameter_comparison")
+
+    # Print summary
+    print("\n=== Trust Parameter Comparison ===")
+
+    # Extract parameter type from name
+    df["param_type"] = df["name"].apply(lambda x: x.rsplit("_trial", 1)[0])
+
+    summary = df.groupby("param_type").agg({
+        "converged": "mean",
+        "convergence_tick": "mean",
+        "final_majority_fraction": "mean",
+        "final_mean_trust": "mean",
+    }).round(3)
+    print(summary)
+
+    return df
+
+
 if __name__ == "__main__":
-    # Example usage
-    print("Running memory comparison experiment...")
-    df = run_memory_comparison(num_agents=50, n_trials=5, n_workers=2)
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--trust":
+        print("Running trust parameter comparison...")
+        df = run_trust_parameter_comparison(num_agents=50, n_trials=5, n_workers=2)
+    else:
+        print("Running decision mode comparison experiment...")
+        df = run_decision_mode_comparison(num_agents=50, n_trials=5, n_workers=2)
+
     print(f"\nResults saved. Total experiments: {len(df)}")
