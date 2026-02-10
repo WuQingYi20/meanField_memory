@@ -131,7 +131,7 @@ For dynamic memory, the effective window depends on trust:
 w_i(t) = \text{base} + \lfloor T_i(t) \times (\text{max} - \text{base}) \rfloor
 \end{equation}
 
-The upper bound $\text{max} \approx 6$ reflects working memory limits \citep{miller1956magical}.
+The upper bound $\text{max} = 6$ is grounded in empirical findings on experience-based decision making. \citet{hertwig2010decisions} showed that in decisions from experience, people rely on surprisingly small samples of recent outcomes, with recency effects further shrinking the effective sample. The BI-SAW model \citep{nevo2012bi}, which won the 2010 Market Entry Prediction Competition by best fitting human behavior in repeated games, found that agents recall only the most recent \textbf{6 trials} of past experience---a bounded memory parameter estimated from experimental data. We adopt this value as our upper bound.
 
 \subsection{Trust Steady State}
 
@@ -438,8 +438,8 @@ This decomposition is only possible because the base model uses probability matc
 Trust increase rate & $\alpha$ & 0.1 & \citet{slovic1993perceived} & Individual \\
 Trust decrease rate & $\beta$ & 0.3 & \citet{slovic1993perceived} & Individual \\
 Initial trust & $T_0$ & 0.5 & --- & Individual \\
-Memory base window & base & 2 & \citet{miller1956magical} & Individual \\
-Memory max window & max & 6 & \citet{miller1956magical} & Individual \\
+Memory base window & base & 2 & \citet{hertwig2010decisions} & Individual \\
+Memory max window & max & 6 & \citet{nevo2012bi} & Individual \\
 \midrule
 Observation amplification & $\gamma_{\text{obs}}$ & 0.3 & \citet{toyokawa2019conformist} & Social \\
 Normative pressure & $\delta$ & 0.2 & \citet{bicchieri2006grammar} & Social \\
@@ -565,10 +565,15 @@ Henrich, J., \& Boyd, R. (1998).
 The evolution of conformist transmission and the emergence of between-group differences.
 \textit{Evolution and Human Behavior}, 19(4), 215--241.
 
-\bibitem[Miller(1956)]{miller1956magical}
-Miller, G.~A. (1956).
-The magical number seven, plus or minus two.
-\textit{Psychological Review}, 63(2), 81--97.
+\bibitem[Hertwig \& Pleskac(2010)]{hertwig2010decisions}
+Hertwig, R., \& Pleskac, T.~J. (2010).
+Decisions from experience: Why small samples?
+\textit{Cognition}, 115(2), 225--237.
+
+\bibitem[Nevo \& Erev(2012)]{nevo2012bi}
+Nevo, I., \& Erev, I. (2012).
+Bounded memory, inertia, sampling and weighting model for market entry games.
+\textit{Games}, 2(1), 187--199.
 
 \bibitem[Rendell et al.(2010)]{rendell2010copy}
 Rendell, L., Boyd, R., Cownden, D., et al. (2010).
