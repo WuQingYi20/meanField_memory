@@ -1,6 +1,13 @@
 """
 Extended simulation environment with full communication support.
 
+.. deprecated:: V5
+    V5 normative features (enforcement, DDM crystallisation, anomaly tracking)
+    are now integrated directly into ``src.environment.SimulationEnvironment``
+    via the ``enable_normative`` flag.  This extended environment remains for
+    the Bicchieri broadcasting, Skyrms pre-play signaling, and Centola
+    threshold contagion mechanisms which are orthogonal to V5.
+
 Integrates three theoretically-grounded communication mechanisms:
 1. Normative Signaling (Bicchieri 2006)
 2. Pre-play Signaling (Skyrms 2010)

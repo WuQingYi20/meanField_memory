@@ -8,6 +8,8 @@ This is an agent-based model (ABM) simulation studying how **memory mechanisms a
 
 The key innovation is the **feedback loop**: `Prediction Accuracy → Trust → Memory Window → Beliefs → Actions → Prediction Accuracy`
 
+**V5 adds a dual-memory architecture**: alongside the experience memory (FIFO), agents have a **normative memory** that stores internalised rules via a drift-diffusion model (DDM). This creates a second feedback loop: `Low Confidence → Fast Crystallisation → Norm Compliance → Enforcement → Cascade`
+
 ## Running the Simulation
 
 ### Basic Commands
@@ -32,10 +34,15 @@ python main.py --memory fixed             # Fixed window (default)
 python main.py --memory decay --decay-rate 0.8
 python main.py --memory dynamic --dynamic-max 6  # Trust-linked adaptive window
 
+# Run with V5 normative memory (dual-memory model)
+python main.py --normative                # Enable normative memory
+python main.py --normative --observation-k 5  # More social observation
+
 # Run comparison experiments
 python main.py --experiment               # Compare all memory types
 python experiments/runner.py              # Decision mode comparison
 python experiments/runner.py --trust      # Trust parameter comparison
+python experiments/runner.py --v5         # V5 factorial (memory × normative)
 
 # Launch interactive dashboard
 python main.py --dashboard
@@ -61,32 +68,44 @@ python -c "from experiments.runner import run_full_comparison; run_full_comparis
 
 # Agent count scaling analysis
 python -c "from experiments.runner import run_agent_count_sweep; run_agent_count_sweep(agent_counts=[10, 50, 100, 200])"
+
+# V5 factorial: memory_type × normative_enabled (2×2 design)
+python -c "from experiments.runner import run_v5_factorial; run_v5_factorial(n_trials=10)"
 ```
 
 ## Architecture
 
 ### Core System Components
 
-The simulation has **three layered subsystems** that interact:
+The simulation has **four layered subsystems** that interact:
 
-1. **Memory System** (`src/memory/`)
+1. **Experience Memory** (`src/memory/`)
    - `BaseMemory`: Abstract interface for all memory types
    - `FixedMemory`: Sliding window with equal weights
    - `DecayMemory`: Exponentially weighted by recency (λ^age)
    - `DynamicMemory`: **Trust-linked adaptive window** [2, 6] (key innovation)
    - Each memory computes weighted strategy distribution from interaction history
 
-2. **Decision System** (`src/decision/`)
+2. **Normative Memory** (`src/memory/normative.py`) — V5 NEW
+   - `NormativeMemory`: Rule-based memory (NOT a BaseMemory subclass)
+   - **DDM crystallisation**: Evidence accumulates via drift-diffusion; drift = (1−C) × consistency × signal_boost
+   - **Anomaly tracking**: Observations violating the norm increment a counter
+   - **Crisis/dissolution**: Anomalies ≥ threshold → σ *= decay; if σ < min → norm dissolves
+   - **Compliance**: σ^k (nonlinear threshold with exponent k=2)
+   - **Enforcement**: Agents with strong norms who observe violations broadcast signals
+   - **Effective belief blending**: b_eff = compliance × b_norm + (1 − compliance) × b_exp
+
+3. **Decision System** (`src/decision/`)
    - `BaseDecision`: Abstract interface for decision mechanisms
    - `CognitiveLockInDecision`: **Recommended** - Probability matching where trust updates asymmetrically (α=0.1, β=0.3 per Slovic 1993)
    - `DualFeedbackDecision`: Original model with τ-based softmax (two feedback loops)
    - `EpsilonGreedyDecision`: Best response + exploration (robustness check)
    - Decision mechanisms choose actions AND make predictions (prediction error drives trust updates)
 
-3. **Agent Integration** (`src/agent.py`)
-   - Integrates memory + decision + trust
+4. **Agent Integration** (`src/agent.py`)
+   - Integrates experience memory + normative memory + decision + trust
    - **Critical linkage**: For `DynamicMemory`, the memory window queries decision's `get_trust()` to compute effective window size
-   - Supports observation-based learning, normative expectations (Bicchieri 2006), and pre-play signaling (Skyrms 2010)
+   - V5: `choose_action()` blends experience and normative beliefs; `process_normative_observations()` routes observations to DDM or anomaly tracker
 
 ### Key Architectural Patterns
 
@@ -114,8 +133,9 @@ The codebase supports **three distinct decision modes** for comparative research
 3. Game execution (coordination payoffs)
 4. Agent updates (memory + trust)
 5. Optional observation distribution (if `observation_k > 0`)
-6. Norm detection using Bicchieri (2006) framework
-7. Convergence tracking (95% majority for 50 ticks)
+6. V5: Normative memory processing (DDM, anomaly, enforcement broadcast)
+7. Norm detection using 6-level hierarchy
+8. Convergence tracking (95% majority for 50 ticks)
 
 The simulation supports **observation-based learning**: agents can observe `k` random interactions beyond their own, modeling social learning.
 
@@ -123,10 +143,11 @@ The simulation supports **observation-based learning**: agents can observe `k` r
 
 `config.py` defines:
 - `SimulationConfig`: Full parameter set for a single run
-- Preset configs: `COGNITIVE_LOCKIN_CONFIG`, `DUAL_FEEDBACK_CONFIG`, etc.
+- `NormativeConfig`: Nested dataclass for V5 normative memory parameters
+- Preset configs: `COGNITIVE_LOCKIN_CONFIG`, `DUAL_FEEDBACK_CONFIG`, `FULL_MODEL_CONFIG`, `NORMATIVE_ONLY_CONFIG`
 - Trust parameter presets: asymmetric (default), symmetric (fast), sensitive (high responsiveness)
 
-`experiments/runner.py` uses `ExperimentConfig` for batch experiments with parallel execution support.
+`experiments/runner.py` uses `ExperimentConfig` for batch experiments with parallel execution support. V5 adds `run_v5_factorial()` for the 2×2 memory × normative design.
 
 ## Important Implementation Details
 
@@ -148,14 +169,17 @@ window = base_size + floor(trust * (max_size - base_size))
 
 At trust=0.5 (initial): window ≈ 4. At trust=1.0: window = 6. At trust=0: window = 2.
 
-### Norm Detection
+### Norm Detection (V5: 6-Level Hierarchy)
 
-`NormDetector` (`src/norms/detector.py`) implements Bicchieri (2006) multi-level framework:
+`NormDetector` (`src/norms/detector.py`) implements a 6-level hierarchy (IntEnum):
 - **Level 0 (NONE)**: No regularity
-- **Level 1 (BEHAVIORAL)**: Behavioral regularity (≥95% adoption)
-- **Level 2 (COGNITIVE)**: + Accurate beliefs (low belief error)
-- **Level 3 (SHARED)**: + Belief consensus (low belief variance)
-- **Level 4 (INSTITUTIONAL)**: + Stability over time
+- **Level 1 (BEHAVIORAL)**: Behavioral regularity (≥95% adoption, stable 50 ticks)
+- **Level 2 (EMPIRICAL)**: + Accurate beliefs (belief error < 0.10)
+- **Level 3 (SHARED)**: + Belief consensus (belief variance < 0.05)
+- **Level 4 (NORMATIVE)**: + ≥80% agents have crystallised norms (V5 new)
+- **Level 5 (INSTITUTIONAL)**: + Self-enforcing stability (200+ ticks at Level 4)
+
+Backward compat: `COGNITIVE` aliases to `EMPIRICAL` (= 2).
 
 ### Coordination Game
 
@@ -205,13 +229,36 @@ When modifying or creating experiments:
 - `convergence_threshold`: Fraction for consensus (default: 0.95)
 - `convergence_window`: Ticks to maintain threshold (default: 50)
 
+**V5 Normative Memory Parameters:**
+- `enable_normative`: Enable dual-memory model (default: False)
+- `observation_k`: Interactions observed per tick for social learning (default: 0)
+- `ddm_noise`: DDM noise σ_noise (default: 0.1)
+- `crystal_threshold`: Evidence threshold θ_crystal for norm formation (default: 3.0)
+- `normative_initial_strength`: Norm strength σ₀ on crystallisation (default: 0.8)
+- `crisis_threshold`: Anomaly count triggering crisis (default: 10)
+- `crisis_decay`: Multiplicative strength decay on crisis (default: 0.3)
+- `enforce_threshold`: Min σ for enforcement (default: 0.7)
+- `compliance_exponent`: Exponent k in compliance = σ^k (default: 2.0)
+- `signal_amplification`: Enforcement signal DDM drift multiplier (default: 2.0)
+
 ## Testing and Validation
 
-No formal test suite exists yet. For validation:
+```bash
+# Run all tests (63 tests)
+python -m pytest tests/ -v
+
+# Run specific test modules
+python -m pytest tests/test_normative_memory.py -v    # DDM, anomaly, crisis, compliance
+python -m pytest tests/test_agent_integration.py -v    # Effective belief blending, enforcement
+python -m pytest tests/test_environment_v5.py -v       # Normative tick cycle, metrics
+python -m pytest tests/test_backward_compatibility.py -v  # V1 mode unchanged
+python -m pytest tests/test_norm_detector_v5.py -v     # 6-level hierarchy
+```
+
+For quick validation:
 1. Run quick test: `python main.py --quick --verbose`
 2. Verify convergence: Should converge in <200 ticks for 100 agents with dynamic memory
-3. Check output files exist in `data/`
-4. Compare memory types: `python main.py --experiment` - dynamic should converge fastest
+3. V5 smoke test: `python main.py --agents 10 --ticks 50 --normative --no-save --no-plot`
 
 ## Common Pitfalls
 
@@ -227,6 +274,8 @@ Based on literature in:
 - **Bicchieri (2006)**: Grammar of Society - normative vs empirical expectations
 - **Slovic (1993)**: Trust asymmetry - negativity bias in risk perception
 - **Skyrms (2010)**: Signals - pre-play communication in coordination games
-- **Miller (1956)**: Cognitive limits - 7±2 items in working memory (we use max=6)
+- **Hertwig & Pleskac (2010)** / **Nevo & Erev (2012)**: Recency-weighted small samples (memory window)
+- **Germar et al. (2014)**: Social influence on perceptual decisions via DDM (normative memory)
+- **Kuhn (1962)**: Paradigm shifts (crisis/dissolution mechanism)
 
-The model extends standard ABM norm formation by making **memory endogenous** - it adapts based on performance rather than being fixed.
+The model extends standard ABM norm formation by making **memory endogenous** - it adapts based on performance rather than being fixed. V5 adds a dual-memory architecture where agents maintain both statistical experience and internalised normative rules.

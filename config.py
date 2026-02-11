@@ -18,6 +18,22 @@ from src.decision import DecisionMode
 
 
 @dataclass
+class NormativeConfig:
+    """Configuration for the normative memory system (V5 dual-memory model)."""
+
+    enabled: bool = False
+    ddm_noise: float = 0.1                # DDM noise sigma_noise (Germar 2014)
+    crystal_threshold: float = 3.0        # Evidence threshold theta_crystal
+    initial_strength: float = 0.8         # Norm strength upon crystallisation sigma_0
+    crisis_threshold: int = 10            # Anomaly count triggering crisis theta_crisis
+    crisis_decay: float = 0.3             # Multiplicative decay on crisis lambda_crisis
+    min_strength: float = 0.1             # Below this, norm dissolves sigma_min
+    enforce_threshold: float = 0.7        # Min sigma for enforcement theta_enforce
+    compliance_exponent: float = 2.0      # Exponent k in compliance = sigma^k
+    signal_amplification: float = 2.0     # DDM drift multiplier gamma_signal
+
+
+@dataclass
 class SimulationConfig:
     """Configuration for the ABM simulation."""
 
@@ -65,6 +81,13 @@ class SimulationConfig:
     random_seed: Optional[int] = 42
     convergence_threshold: float = 0.95  # Fraction for consensus
     convergence_window: int = 50  # Ticks to maintain threshold
+
+    # Observation/communication settings
+    observation_k: int = 0            # Number of extra interactions to observe (0 = none)
+    observation_weight: float = 0.5   # Weight of observed vs direct experience
+
+    # Normative memory (V5 dual-memory model)
+    normative: NormativeConfig = field(default_factory=NormativeConfig)
 
     # Output settings
     output_dir: str = "data"
@@ -204,4 +227,30 @@ EPSILON_GREEDY_CONFIG = SimulationConfig(
     alpha=0.1,
     beta=0.3,
     exploration_mode="random",
+)
+
+# =============================================================================
+# V5 Dual-Memory Presets
+# =============================================================================
+
+# Full model: dynamic memory + normative memory (V5)
+FULL_MODEL_CONFIG = SimulationConfig(
+    decision_mode=DecisionMode.COGNITIVE_LOCKIN,
+    memory_type="dynamic",
+    initial_trust=0.5,
+    alpha=0.1,
+    beta=0.3,
+    observation_k=3,
+    normative=NormativeConfig(enabled=True),
+)
+
+# Normative-only: fixed memory + normative memory (for 2x2 factorial)
+NORMATIVE_ONLY_CONFIG = SimulationConfig(
+    decision_mode=DecisionMode.COGNITIVE_LOCKIN,
+    memory_type="fixed",
+    initial_trust=0.5,
+    alpha=0.1,
+    beta=0.3,
+    observation_k=3,
+    normative=NormativeConfig(enabled=True),
 )
