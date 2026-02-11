@@ -29,7 +29,7 @@
 \maketitle
 
 \begin{abstract}
-We present a dual-memory model of norm emergence in coordination games. Agents maintain two qualitatively distinct memory systems: an \emph{experience memory} that tracks interaction history through a confidence-modulated sliding window, and a \emph{normative memory} that stores internalised rules as decision constraints. The two systems are bridged by a single state variable---predictive confidence---which measures the agent's confidence in the predictability of the social environment and plays three natural roles: it controls the experience memory window (cognitive lock-in), determines susceptibility to norm internalisation (low confidence $\to$ accept external rules), and governs whether norm violations trigger enforcement or belief updating (high confidence $\to$ enforce; low confidence $\to$ update). Norm formation follows a drift-diffusion process grounded in \citet{germar2014social}: uncertain agents accumulate stochastic evidence from observing consistent behaviour until a crystallisation threshold is crossed. Norm enforcement is violation-triggered and confidence-dependent, consistent with \citet{fehr2002altruistic} and \citet{toribio2023proof}. The three feedback loops of the model---individual learning, social amplification, and normative pressure---emerge naturally from the dual-memory architecture without requiring separate mechanisms.
+We present a dual-memory model of norm emergence in coordination games. Agents maintain two qualitatively distinct memory systems: an \emph{experience memory} that tracks interaction history through a confidence-modulated sliding window, and a \emph{normative memory} that stores internalised rules as decision constraints. The two systems are bridged by a single state variable---predictive confidence---which measures the agent's confidence in the predictability of the social environment and governs cognitive adaptation: it controls the experience memory window (cognitive lock-in) and determines susceptibility to norm internalisation (low confidence $\to$ accept external rules). Norm formation follows a drift-diffusion process grounded in \citet{germar2014social}: uncertain agents accumulate stochastic evidence from observing consistent behaviour until a crystallisation threshold is crossed. Norm enforcement is violation-triggered and gated by norm strength $\sigma_i$, consistent with \citet{fehr2002altruistic} and \citet{toribio2023proof}. The three feedback loops of the model---individual learning, social amplification, and normative pressure---emerge naturally from the dual-memory architecture without requiring separate mechanisms.
 \end{abstract}
 
 % =====================================================================
@@ -47,7 +47,7 @@ The question has two parts: (1) how do norms \emph{form}, and (2) how do norms \
 
 The is--ought gap \citep{hume1739treatise} means that norms cannot be derived from experience alone. An agent who observes that 70\% of partners play strategy~$A$ has an empirical belief, not a norm. The transition from ``most people do $A$'' to ``one \emph{should} do $A$'' requires a qualitatively different cognitive step.
 
-We propose that this step is \textbf{norm internalisation}: the process by which an uncertain agent, observing confident and consistent behaviour in others, infers the existence of a rule and adopts it as a decision constraint. Predictive confidence---the agent's confidence in the predictability of the social environment---is the single variable that bridges the two memory systems, governing when agents learn from experience, when they internalise norms, and when they enforce them.
+We propose that this step is \textbf{norm internalisation}: the process by which an uncertain agent, observing confident and consistent behaviour in others, infers the existence of a rule and adopts it as a decision constraint. Predictive confidence---the agent's confidence in the predictability of the social environment---bridges learning and internalisation across the two memory systems, while norm strength $\sigma_i$ governs enforcement.
 
 % =====================================================================
 \section{Model Overview}
@@ -83,7 +83,7 @@ Normative memory & $M_i^N$ & Rule + strength + anomalies & Decision constraint \
 
 Predictive confidence $C_i(t) \in [0,1]$ measures agent $i$'s confidence in the predictability of the social environment. It answers: \emph{``How reliably can I predict what will happen in my next interaction?''} This is distinct from interpersonal trust (directed at specific partners) or institutional trust (directed at organisations). It is a purely epistemic variable---an agent's meta-cognitive assessment of environmental stability.
 
-Predictive confidence is \textbf{not} a parameter of either memory system. It is a single state variable whose semantic interpretation naturally produces three functional roles:
+Predictive confidence is \textbf{not} a parameter of either memory system. It is a single state variable whose semantic interpretation naturally produces two functional roles in the cognitive layer:
 
 \begin{center}
 \begin{tabular}{lll}
@@ -92,7 +92,7 @@ Predictive confidence is \textbf{not} a parameter of either memory system. It is
 \midrule
 Low ($< 0.3$) & ``I cannot predict this environment'' & Short window; own experience unreliable $\to$ susceptible to norm internalisation \\
 Medium ($0.3$--$0.7$) & ``I can roughly predict'' & Moderate window; norm provides useful constraint \\
-High ($> 0.7$) & ``I can reliably predict'' & Long window; own experience sufficient $\to$ can override norm or enforce it \\
+High ($> 0.7$) & ``I can reliably predict'' & Long window; own experience sufficient $\to$ can override norm \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -230,25 +230,32 @@ This mirrors Kuhn's (\citeyear{kuhn1962structure}) paradigm shifts: normal scien
 When a norm exists, it constrains the experience-based belief:
 
 \begin{align}
-\text{compliance}_i &= (1 - C_i)^k, \quad k > 1 \label{eq:compliance} \\
+\text{compliance}_i &= \sigma_i^k, \quad k > 1 \label{eq:compliance} \\
 \mathbf{b}^{\text{norm}} &= \text{one\_hot}(r_i) \label{eq:norm_belief} \\
 \mathbf{b}^{\text{eff}}_i &= \text{compliance}_i \cdot \mathbf{b}^{\text{norm}} + (1 - \text{compliance}_i) \cdot \mathbf{b}^{\text{exp}}_i \label{eq:effective}
 \end{align}
 
-The exponent $k > 1$ creates a nonlinear threshold: compliance drops slowly at first and rapidly only at very high confidence. With $k = 2$:
+Compliance is driven by norm strength $\sigma_i$, not by predictive confidence $C_i$. The exponent $k > 1$ creates a nonlinear threshold: compliance remains high when the norm is strong and drops rapidly only when norm strength erodes through anomaly accumulation (Eq.~\ref{eq:crisis}). With $k = 2$:
 
 \begin{center}
 \begin{tabular}{ccc}
 \toprule
-Confidence $C$ & Compliance $(1-C)^2$ & Behaviour \\
+Norm strength $\sigma$ & Compliance $\sigma^2$ & Behaviour \\
 \midrule
-0.3 & 0.49 & Mostly follows norm \\
-0.5 & 0.25 & Norm still constrains \\
-0.7 & 0.09 & Experience dominates \\
-0.9 & 0.01 & Essentially free of norm \\
+0.9 & 0.81 & Strong norm adherence \\
+0.8 (initial) & 0.64 & Norm significantly constrains \\
+0.5 & 0.25 & Experience begins to dominate \\
+0.3 & 0.09 & Norm weakening \\
+0.1 & 0.01 & Norm nearly dissolved \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+\paragraph{Why norm strength, not confidence?} The previous formulation $\text{compliance}_i = (1 - C_i)^k$ creates a paradox: as agents successfully coordinate, their predictive confidence $C$ rises, which \emph{reduces} compliance with the very norm that made them successful. At $C = 0.9$, compliance would be only 0.01---the agent essentially ignores the norm. This conflates two distinct concepts: predictive confidence (``I can predict what will happen''---an epistemic assessment) and norm independence (``I don't need the norm''---a decision to override normative constraints). An agent can be highly confident \emph{and} highly norm-compliant, precisely when the norm is the source of that confidence.
+
+The literature supports this correction. \citet{bicchieri2006grammar} argues that norm compliance is conditional on empirical expectations---believing others follow the norm. High predictive confidence means strong empirical expectations, which should \emph{increase} compliance, not decrease it. \citet{rendell2010copy} found that winning strategies in the social learning tournament relied almost exclusively on social learning even when personal information was available; confident agents did not abandon social information. \citet{gintis2003internalization} showed that internalised norms create intrinsic motivation to comply, and \citet{axelrod1986evolutionary} demonstrated that internalisation makes compliance robust by making ``the temptation to defect negative rather than positive.'' \citet{andrighetto2015agents} found that once norms are internalised, agents pursue compliance ``as an end in itself,'' with compliance strength proportional to norm salience. \citet{will2023stronger} confirmed that ``stronger norm internalisation is associated with stronger norm compliance'' and behavioural inflexibility.
+
+Using $\sigma_i$ for compliance creates a coherent architecture: the same variable governs compliance (Eq.~\ref{eq:compliance}), enforcement gating (Eq.~\ref{eq:violation_response}), and crisis dynamics (Eq.~\ref{eq:crisis}). Predictive confidence $C_i$ retains its correct roles in norm \emph{formation} (DDM drift $\propto (1 - C)$; Eq.~\ref{eq:drift}) and memory modulation (window $= f(C)$; Eq.~\ref{eq:window}), consistent with the ``copy when uncertain'' principle \citep{rendell2010copy}.
 
 When $r_i = \varnothing$: $\mathbf{b}^{\text{eff}}_i = \mathbf{b}^{\text{exp}}_i$ (pure experience-based decision).
 
@@ -262,7 +269,7 @@ Norm enforcement is \textbf{reactive}, not proactive. An agent broadcasts a norm
 
 \begin{enumerate}[itemsep=2pt]
     \item The agent \textbf{has a norm} ($r_i \neq \varnothing$)
-    \item The agent \textbf{is confident} ($C_i > \theta_{\text{enforce}}$)
+    \item The agent has \textbf{high norm strength} ($\sigma_i > \theta_{\text{enforce}}$)
     \item The agent \textbf{observes a violation} ($s^*_{\text{observed}} \neq r_i$)
 \end{enumerate}
 
@@ -276,19 +283,19 @@ Norm enforcement is \textbf{reactive}, not proactive. An agent broadcasts a norm
 
 \subsection{Asymmetric Response to Violations}
 
-The same observed violation produces qualitatively different responses depending on the observer's predictive confidence:
+The same observed violation produces qualitatively different responses depending on the observer's norm strength:
 
 \begin{equation}\label{eq:violation_response}
 \text{Observe } s^* \neq r_i: \quad \begin{cases}
-C_i > \theta_{\text{enforce}}: & \text{broadcast}(r_i) \quad \textit{(``I can predict this environment; he is the anomaly''---enforce)} \\
-C_i \leq \theta_{\text{enforce}}: & a_i \leftarrow a_i + 1 \quad \textit{(``Maybe the environment has changed''---update)}
+\sigma_i > \theta_{\text{enforce}}: & \text{broadcast}(r_i) \quad \textit{(``This rule is still right''---enforce)} \\
+\sigma_i \leq \theta_{\text{enforce}}: & a_i \leftarrow a_i + 1 \quad \textit{(``My conviction is weak; accumulate anomaly''---update)}
 \end{cases}
 \end{equation}
 
 \paragraph{Theoretical basis.}
 \begin{itemize}[itemsep=2pt]
     \item Uncertain agents \emph{update}: \citet{sherif1936psychology} showed that uncertain individuals converge toward others' judgments. \citet{deutsch1955study} established that uncertainty activates informational influence (learning mode). \citet{cialdini2004social}: uncertainty drives norm-seeking behaviour.
-    \item Confident agents \emph{enforce}: \citet{skitka2010moral} showed that moral conviction produces enforcement and resistance to conformity. \citet{fehr2000cooperation}: high contributors (most committed) punish most. \citet{chudek2011culture}: norm psychology follows a sequence---infer $\to$ internalise $\to$ enforce. Enforcement requires prior internalisation.
+    \item High-conviction agents \emph{enforce}: \citet{skitka2010moral} showed that moral conviction produces enforcement and resistance to conformity. \citet{fehr2000cooperation}: high contributors (most committed) punish most. \citet{chudek2011culture}: norm psychology follows a sequence---infer $\to$ internalise $\to$ enforce. Enforcement requires prior internalisation.
 \end{itemize}
 
 This dual response is a \textbf{novel contribution} of our model, synthesising across the conformity, punishment, and moral conviction literatures. It has not been tested in a single experiment but follows as a natural prediction from convergent evidence.
@@ -412,10 +419,10 @@ Random drift creates a small majority (55--65\%). Confidence stabilises for majo
 First norms crystallise (DDM crosses threshold) in the most uncertain agents. These agents start following the norm $\to$ more behavioural consistency. Simultaneously, confidence rises for consistent agents. Level: \textsc{Behavioral} achieved.
 
 \paragraph{Phase 4: Enforcement onset (ticks 150--250).}
-Agents who internalised norms early have now gained confidence through successful coordination. They cross $\theta_{\text{enforce}}$ and begin broadcasting normative signals when violations are observed. These signals accelerate DDM in remaining agents (Eq.~\ref{eq:signal_boost}). Positive cascade. Level: \textsc{Empirical} $\to$ \textsc{Shared} $\to$ \textsc{Normative}.
+Agents who internalised norms early maintain high norm strength. They remain above $\theta_{\text{enforce}}$ and begin broadcasting normative signals when violations are observed. These signals accelerate DDM in remaining agents (Eq.~\ref{eq:signal_boost}). Positive cascade. Level: \textsc{Empirical} $\to$ \textsc{Shared} $\to$ \textsc{Normative}.
 
 \paragraph{Phase 5: Institutional stability (ticks 250+).}
-Nearly all agents have norm $+$ high confidence. Violations are rare and immediately enforced. Anomaly counts stay low. The norm is self-sustaining. Level: \textsc{Institutional}.
+Nearly all agents have norm $+$ high norm strength. Violations are rare and immediately enforced. Anomaly counts stay low. The norm is self-sustaining. Level: \textsc{Institutional}.
 
 % =====================================================================
 \section{Experimental Design}
@@ -455,8 +462,8 @@ Nearly all agents have norm $+$ high confidence. Violations are rare and immedia
     \item[H2: Low-confidence agents internalise norms first]
     Because DDM drift rate $\propto (1 - C)$. Test: correlate confidence at crystallisation with crystallisation order.
 
-    \item[H3: Same violation $\to$ different responses by confidence level]
-    High-confidence agents enforce; low-confidence agents accumulate anomalies. Test: track enforcement rate vs.\ anomaly accumulation as function of confidence.
+    \item[H3: Same violation $\to$ different responses by norm strength]
+    High-$\sigma$ agents enforce; low-$\sigma$ agents accumulate anomalies. Test: track enforcement rate vs.\ anomaly accumulation as function of norm strength.
 
     \item[H4: Enforcement accelerates the cascade]
     Normative signals boost DDM drift. Test: compare norm adoption speed before and after first enforcement events.
@@ -491,7 +498,7 @@ Initial norm strength & $\sigma_0$ & 0.8 & Normative & --- \\
 Crisis threshold & $\theta_{\text{crisis}}$ & 10 & Normative & --- \\
 Crisis decay & $\lambda_{\text{crisis}}$ & 0.3 & Normative & --- \\
 \midrule
-Enforcement threshold & $\theta_{\text{enforce}}$ & 0.7 & Both & \citet{toribio2023proof} \\
+Enforcement threshold (on $\sigma$) & $\theta_{\text{enforce}}$ & 0.7 & Normative & \citet{toribio2023proof} \\
 Compliance exponent & $k$ & 2 & Both & --- \\
 Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & --- \\
 \bottomrule
@@ -541,7 +548,7 @@ Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & --- \\
 
 % ---- Internal arrows ----
 \draw[arrow, blue!70] (expmem) -- node[label, left] {$\mathbf{b}^{\text{exp}}$} (decision);
-\draw[arrow, red!60] (normmem) -- node[label, right] {constraint\\{\scriptsize $c=(1-C)^k$}} (decision);
+\draw[arrow, red!60] (normmem) -- node[label, right] {constraint\\{\scriptsize $c=\sigma_i^k$}} (decision);
 \draw[arrow, orange!80] (trust) -- node[label, left, xshift=-3pt] {window} (expmem);
 \draw[arrow, orange!80] (trust) -- node[label, right, xshift=3pt] {DDM drift\\{\scriptsize $\propto(1\!-\!C)$}} (normmem);
 \draw[arrow, orange!80] (trust) -- (decision);
@@ -558,7 +565,7 @@ Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & --- \\
 \draw[arrow, yellow!60!orange, thick] (signal) -- node[label, right] {$\gamma_{\text{signal}}$\\{\scriptsize boosts DDM}} (normmem);
 
 % ---- Enforcement arrow (from decision out) ----
-\draw[arrow, red!70, dashed] (normmem) -- node[label, right, xshift=2pt] {if $C>\theta$\\+ violation} (signal);
+\draw[arrow, red!70, dashed] (normmem) -- node[label, right, xshift=2pt] {if $\sigma>\theta$\\+ violation} (signal);
 
 % ---- Lock-in annotation ----
 \node[draw=lockinpink, fill=lockinpink, rounded corners, text width=12.5cm, align=center, font=\small] at (2, -2) {
@@ -569,7 +576,7 @@ Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & --- \\
 };
 
 \end{tikzpicture}
-\caption{Dual-memory architecture. Predictive confidence bridges experience memory (statistical, FIFO) and normative memory (rule-based, anomaly-tracked). Observations feed both systems simultaneously. Normative signals are violation-triggered and confidence-gated, accelerating DDM crystallisation in receivers.}
+\caption{Dual-memory architecture. Predictive confidence bridges experience memory (statistical, FIFO) and normative memory (rule-based, anomaly-tracked). Observations feed both systems simultaneously. Normative signals are violation-triggered and norm-strength-gated, accelerating DDM crystallisation in receivers.}
 \label{fig:dual_memory}
 \end{figure}
 
@@ -579,7 +586,7 @@ Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & --- \\
 
 \subsection*{The Model in One Paragraph}
 
-Agents maintain two memory systems bridged by predictive confidence. \textbf{Experience memory} stores interaction history in a confidence-modulated sliding window, producing statistical beliefs; this creates \emph{cognitive lock-in} where successful coordination stabilises beliefs through expanded memory. \textbf{Normative memory} stores internalised rules as decision constraints, formed through a stochastic drift-diffusion process \citep{germar2019learning} when uncertain agents observe consistent behaviour. Once formed, norms are maintained through anomaly accumulation (not statistical updating) and overthrown only through crisis-induced phase transitions. Predictive confidence determines whether an agent is a \emph{norm receiver} (low confidence $\to$ cannot predict the environment, so internalises others' consistency as a rule), a \emph{norm follower} (moderate confidence $\to$ norm provides a useful constraint supplementing incomplete experience), or a \emph{norm enforcer} (high confidence $\to$ can reliably predict the environment, so treats violations as errors to be corrected). The three feedback loops---cognitive lock-in, social amplification, and normative pressure---emerge naturally from this architecture. The result: a model where experience memory explains norm \emph{stability}, normative memory explains norm \emph{prescriptive force}, and their interaction through predictive confidence produces self-enforcing social norms from cold start.
+Agents maintain two memory systems bridged by predictive confidence. \textbf{Experience memory} stores interaction history in a confidence-modulated sliding window, producing statistical beliefs; this creates \emph{cognitive lock-in} where successful coordination stabilises beliefs through expanded memory. \textbf{Normative memory} stores internalised rules as decision constraints, formed through a stochastic drift-diffusion process \citep{germar2019learning} when uncertain agents observe consistent behaviour. Once formed, norms are maintained through anomaly accumulation (not statistical updating) and overthrown only through crisis-induced phase transitions. Predictive confidence determines whether an agent is a \emph{norm receiver} (low confidence $\to$ cannot predict the environment, so internalises others' consistency as a rule) or a \emph{norm follower} (moderate/high confidence $\to$ norm provides a useful constraint supplementing experience). Enforcement is gated by normative conviction: agents with high norm strength $\sigma_i$ treat violations as errors to be corrected, while low-$\sigma_i$ agents accumulate anomalies. The three feedback loops---cognitive lock-in, social amplification, and normative pressure---emerge naturally from this architecture. The result: a model where experience memory explains norm \emph{stability}, normative memory explains norm \emph{prescriptive force}, and their interaction produces self-enforcing social norms from cold start.
 
 \subsection*{Key Equations}
 
@@ -588,14 +595,16 @@ Agents maintain two memory systems bridged by predictive confidence. \textbf{Exp
 \text{Confidence:} && C^* &= p\alpha / (p\alpha + (1\!-\!p)\beta) && \text{(steady state)} \\
 \text{Window:} && w &= \text{base} + \lfloor C(\text{max} - \text{base}) \rfloor && \text{(lock-in)} \\
 \text{DDM:} && e(t\!+\!1) &= e(t) + (1\!-\!C) \cdot \text{consistency} + \mathcal{N}(0,\sigma^2) && \text{(norm formation)} \\
-\text{Compliance:} && c &= (1 - C)^k && \text{(norm constraint)} \\
+\text{Compliance:} && c &= \sigma^k && \text{(norm constraint)} \\
 \text{Decision:} && \mathbf{b}^{\text{eff}} &= c \cdot \mathbf{b}^{\text{norm}} + (1\!-\!c) \cdot \mathbf{b}^{\text{exp}} && \text{(integration)} \\
-\text{Enforcement:} && & C > \theta_{\text{enforce}} \,\wedge\, s^* \neq r \;\Rightarrow\; \text{broadcast}(r) && \text{(violation-triggered)}
+\text{Enforcement:} && & \sigma > \theta_{\text{enforce}} \,\wedge\, s^* \neq r \;\Rightarrow\; \text{broadcast}(r) && \text{(violation-triggered)}
 \end{align*}
 
 \subsection*{Relation to Trust Research}
 
 Our predictive confidence variable is related to but distinct from the concept of trust in social psychology. Interpersonal trust \citep{rotter1967new} concerns expectations about specific partners' behaviour; institutional trust \citep{luhmann1979trust} concerns expectations about systemic reliability. Predictive confidence is narrower and more operational: it measures the agent's belief that the social environment is statistically stable enough for past experience to predict future interactions. This aligns with the volatility estimation framework of \citet{behrens2007learning}, where learning rate adjusts to perceived environmental change rate. In our model, predictive confidence \emph{is} the inverse of perceived volatility, implemented through asymmetric update dynamics.
+
+\paragraph{Scope of predictive confidence.} Predictive confidence $C_i$ governs two pre-crystallisation processes: (1)~the experience memory window (Eq.~\ref{eq:window}), determining how much past data the agent retains, and (2)~the DDM drift rate (Eq.~\ref{eq:drift}), determining how quickly the agent absorbs norm evidence (``copy when uncertain''). It does \emph{not} govern post-crystallisation norm compliance. Once a norm has crystallised, compliance is determined by norm strength $\sigma_i$ (Eq.~\ref{eq:compliance}), which tracks the norm's internal integrity through anomaly accumulation and crisis dynamics. This separation reflects the distinction between epistemic uncertainty (``can I predict?'') and normative conviction (``how binding is the rule?'')---an agent may be highly confident in predicting the environment \emph{because} it follows a strong norm, and that confidence should not undermine the very compliance that produces it.
 
 % =====================================================================
 \bibliographystyle{apalike}
@@ -739,6 +748,26 @@ Social learning strategies regulate the wisdom and madness of interactive crowds
 Young, H.~P. (1993).
 The evolution of conventions.
 \textit{Econometrica}, 61(1), 57--84.
+
+\bibitem[Andrighetto et al.(2015)]{andrighetto2015agents}
+Andrighetto, G., Conte, R., Turrini, P., \& Paolucci, M. (2015).
+Emergence of norms through social learning.
+\textit{Journal of Artificial Societies and Social Simulation}, 18(2), 4.
+
+\bibitem[Axelrod(1986)]{axelrod1986evolutionary}
+Axelrod, R. (1986).
+An evolutionary approach to norms.
+\textit{American Political Science Review}, 80(4), 1095--1111.
+
+\bibitem[Gintis(2003)]{gintis2003internalization}
+Gintis, H. (2003).
+The hitchhiker's guide to altruism: Gene-culture coevolution and the internalization of norms.
+\textit{Journal of Theoretical Biology}, 220(4), 407--418.
+
+\bibitem[Will et al.(2023)]{will2023stronger}
+Will, M., Groeneveld, J., Frank, K., \& M\"{u}ller, B. (2023).
+Combining social norms and risk attitudes in agent-based models: A systematic review.
+\textit{Journal of Artificial Societies and Social Simulation}, 26(1), 3.
 
 \end{thebibliography}
 
