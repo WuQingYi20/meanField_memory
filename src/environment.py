@@ -4,6 +4,9 @@ Simulation environment for ABM coordination game.
 Manages agent interactions, random matching, and data collection.
 Supports multiple decision modes for comparative experiments.
 Supports observation-based communication for studying norm emergence.
+
+V5: Supports dual-memory architecture with normative memory,
+enforcement signalling, and normative metrics collection.
 """
 
 import numpy as np
@@ -34,9 +37,19 @@ class TickMetrics:
     majority_fraction: float
     mean_memory_window: float
     # Norm detection (Bicchieri 2006)
-    norm_level: int  # 0=NONE, 1=BEHAVIORAL, 2=COGNITIVE, 3=SHARED, 4=INSTITUTIONAL
+    norm_level: int  # 0=NONE, 1=BEHAVIORAL, 2=COGNITIVE/EMPIRICAL, 3=SHARED, 4=NORMATIVE, 5=INSTITUTIONAL
     belief_error: float  # Mean |agent_belief - true_distribution|
     belief_variance: float  # Variance across agent beliefs
+    # V5 normative memory metrics (defaults maintain backward compat)
+    norm_adoption_rate: float = 0.0       # Fraction of agents with crystallised norm
+    mean_norm_strength: float = 0.0       # Mean sigma across agents with norms
+    mean_ddm_evidence: float = 0.0        # Mean DDM evidence across agents without norms
+    total_anomalies: int = 0              # Total anomalies accumulated this tick
+    norm_crises: int = 0                  # Number of norm dissolutions this tick
+    enforcement_events: int = 0           # Number of enforcement signals this tick
+    norm_crystallisations: int = 0        # Number of new norms formed this tick
+    correct_norm_rate: float = 0.0        # Fraction of norms matching majority strategy
+    mean_compliance: float = 0.0          # Mean compliance across all agents
 
 
 @dataclass
@@ -61,6 +74,7 @@ class SimulationEnvironment:
     - Game execution
     - Metrics collection
     - Convergence detection
+    - V5: Normative memory processing and enforcement
     """
 
     def __init__(
@@ -94,6 +108,17 @@ class SimulationEnvironment:
         # Observation/communication settings
         observation_k: int = 0,  # Number of interactions to observe (0 = no observation)
         observation_weight: float = 0.5,  # Weight of observed vs direct experience
+        # V5: Normative memory settings
+        enable_normative: bool = False,
+        ddm_noise: float = 0.1,
+        crystal_threshold: float = 3.0,
+        normative_initial_strength: float = 0.8,
+        crisis_threshold: int = 10,
+        crisis_decay: float = 0.3,
+        min_strength: float = 0.1,
+        enforce_threshold: float = 0.7,
+        compliance_exponent: float = 2.0,
+        signal_amplification: float = 2.0,
     ):
         """
         Initialize simulation environment.
@@ -119,6 +144,18 @@ class SimulationEnvironment:
             convergence_threshold: Fraction needed for consensus
             convergence_window: Ticks threshold must be maintained
             random_seed: Random seed for reproducibility
+            observation_k: Number of extra interactions to observe
+            observation_weight: Weight of observed vs direct experience
+            enable_normative: Whether to enable normative memory (V5)
+            ddm_noise: DDM noise sigma_noise
+            crystal_threshold: Evidence threshold for crystallisation
+            normative_initial_strength: Norm strength on crystallisation
+            crisis_threshold: Anomaly count for crisis
+            crisis_decay: Strength decay on crisis
+            min_strength: Below this, norm dissolves
+            enforce_threshold: Min sigma for enforcement
+            compliance_exponent: Exponent k in sigma^k
+            signal_amplification: DDM drift multiplier gamma_signal
         """
         # Ensure even number of agents for pairing
         if num_agents % 2 != 0:
@@ -128,6 +165,7 @@ class SimulationEnvironment:
         self._game = game or CoordinationGame()
         self._convergence_threshold = convergence_threshold
         self._convergence_window = convergence_window
+        self._enable_normative = enable_normative
 
         # Convert string to enum if needed
         if isinstance(decision_mode, str):
@@ -166,6 +204,17 @@ class SimulationEnvironment:
             # Observation/communication
             "observation_k": observation_k,
             "observation_weight": observation_weight,
+            # V5 normative
+            "enable_normative": enable_normative,
+            "ddm_noise": ddm_noise,
+            "crystal_threshold": crystal_threshold,
+            "normative_initial_strength": normative_initial_strength,
+            "crisis_threshold": crisis_threshold,
+            "crisis_decay": crisis_decay,
+            "min_strength": min_strength,
+            "enforce_threshold": enforce_threshold,
+            "compliance_exponent": compliance_exponent,
+            "signal_amplification": signal_amplification,
         }
 
         # Set random seed
@@ -195,6 +244,18 @@ class SimulationEnvironment:
                 beta=beta,
                 # EPSILON_GREEDY specific
                 exploration_mode=exploration_mode,
+                # V5 normative
+                enable_normative=enable_normative,
+                ddm_noise=ddm_noise,
+                crystal_threshold=crystal_threshold,
+                normative_initial_strength=normative_initial_strength,
+                crisis_threshold=crisis_threshold,
+                crisis_decay=crisis_decay,
+                min_strength=min_strength,
+                enforce_threshold=enforce_threshold,
+                compliance_exponent=compliance_exponent,
+                signal_amplification=signal_amplification,
+                normative_rng=np.random.RandomState(random_seed + i if random_seed is not None else None),
             )
             self._agents.append(agent)
 
@@ -304,6 +365,87 @@ class SimulationEnvironment:
                     agent.receive_observation(s1, self._observation_weight)
                     agent.receive_observation(s2, self._observation_weight)
 
+    def _collect_observed_strategies(
+        self,
+        agent: Agent,
+        interactions: List[Tuple[int, int, int, int]],
+    ) -> List[int]:
+        """
+        Collect all strategies observed by an agent this tick.
+
+        Includes partner's strategy from direct interaction plus
+        any observations from observation_k.
+
+        Args:
+            agent: The agent
+            interactions: All interactions this tick
+
+        Returns:
+            List of observed strategies
+        """
+        observed = []
+
+        # Partner's strategy from direct interaction
+        for id1, id2, s1, s2 in interactions:
+            if id1 == agent.id:
+                observed.append(s2)
+            elif id2 == agent.id:
+                observed.append(s1)
+
+        # Observed strategies (from observation_k, stored in agent._observations)
+        for strategy, weight in agent._observations:
+            observed.append(strategy)
+
+        return observed
+
+    def _process_normative_step(
+        self,
+        interactions: List[Tuple[int, int, int, int]],
+    ) -> Tuple[int, int, int]:
+        """
+        Process normative memory updates for all agents.
+
+        Steps:
+        1. Each agent processes observed strategies through normative memory
+        2. Agents with enforcement signals broadcast to all others
+
+        Args:
+            interactions: All interactions this tick
+
+        Returns:
+            Tuple of (total_crystallisations, total_dissolutions, total_enforcements)
+        """
+        total_crystallisations = 0
+        total_dissolutions = 0
+        total_enforcements = 0
+
+        # Step 1: Collect observed strategies and process normative observations
+        enforcement_signals: List[int] = []  # strategies to broadcast
+
+        for agent in self._agents:
+            observed = self._collect_observed_strategies(agent, interactions)
+
+            # Check for enforcement signals BEFORE processing (agent state still pristine)
+            signal = agent.get_enforcement_signal(observed)
+            if signal is not None:
+                enforcement_signals.append(signal)
+                total_enforcements += 1
+
+            # Process observations through normative memory
+            crystallised, dissolved, enforcements = agent.process_normative_observations(observed)
+
+            if crystallised:
+                total_crystallisations += 1
+            if dissolved:
+                total_dissolutions += 1
+
+        # Step 2: Broadcast enforcement signals to all agents
+        for signal_strategy in enforcement_signals:
+            for agent in self._agents:
+                agent.receive_normative_signal(signal_strategy)
+
+        return total_crystallisations, total_dissolutions, total_enforcements
+
     def step(self) -> TickMetrics:
         """
         Execute one simulation tick.
@@ -314,7 +456,8 @@ class SimulationEnvironment:
         3. Each pair plays the coordination game
         4. Distribute observations (if observation_k > 0)
         5. Agents update based on outcomes
-        6. Collect metrics including norm level
+        6. V5: Process normative observations and enforcement
+        7. Collect metrics including norm level
 
         Returns:
             Metrics for this tick
@@ -372,6 +515,14 @@ class SimulationEnvironment:
 
         self._last_interactions = tick_interactions_list
 
+        # V5: Process normative memory updates
+        tick_crystallisations = 0
+        tick_dissolutions = 0
+        tick_enforcements = 0
+        if self._enable_normative:
+            tick_crystallisations, tick_dissolutions, tick_enforcements = \
+                self._process_normative_step(tick_interactions_list)
+
         # Count strategy switches
         for agent in self._agents:
             if agent.current_strategy != strategies_before[agent.id]:
@@ -382,6 +533,9 @@ class SimulationEnvironment:
             tick_interactions=tick_interactions,
             tick_successes=tick_successes,
             tick_switches=tick_switches,
+            tick_crystallisations=tick_crystallisations,
+            tick_dissolutions=tick_dissolutions,
+            tick_enforcements=tick_enforcements,
         )
 
         self._tick_history.append(metrics)
@@ -397,6 +551,9 @@ class SimulationEnvironment:
         tick_interactions: int,
         tick_successes: int,
         tick_switches: int,
+        tick_crystallisations: int = 0,
+        tick_dissolutions: int = 0,
+        tick_enforcements: int = 0,
     ) -> TickMetrics:
         """
         Collect metrics for current tick.
@@ -405,6 +562,9 @@ class SimulationEnvironment:
             tick_interactions: Number of interactions this tick
             tick_successes: Number of successful coordinations
             tick_switches: Number of strategy switches
+            tick_crystallisations: Number of new norms formed
+            tick_dissolutions: Number of norms dissolved
+            tick_enforcements: Number of enforcement signals
 
         Returns:
             TickMetrics instance
@@ -434,7 +594,48 @@ class SimulationEnvironment:
         converged = majority_fraction >= self._convergence_threshold
 
         # Norm detection (Bicchieri 2006)
-        norm_state = self._norm_detector.detect(strategies, beliefs, self._current_tick)
+        # Compute norm adoption rate for V5 level detection
+        norm_adoption_rate = 0.0
+        mean_norm_strength = 0.0
+        mean_ddm_evidence = 0.0
+        total_anomalies = 0
+        correct_norm_rate = 0.0
+        mean_compliance = 0.0
+
+        if self._enable_normative:
+            agents_with_norm = 0
+            norm_strength_sum = 0.0
+            ddm_evidence_sum = 0.0
+            agents_without_norm = 0
+            anomaly_sum = 0
+            correct_norms = 0
+            compliance_sum = 0.0
+
+            for agent in self._agents:
+                ns = agent.normative_state
+                if ns is not None:
+                    compliance_sum += ns.compliance
+                    if ns.has_norm:
+                        agents_with_norm += 1
+                        norm_strength_sum += ns.strength
+                        anomaly_sum += ns.anomaly_count
+                        if ns.norm == majority_strategy:
+                            correct_norms += 1
+                    else:
+                        agents_without_norm += 1
+                        ddm_evidence_sum += ns.evidence
+
+            norm_adoption_rate = agents_with_norm / total if total > 0 else 0.0
+            mean_norm_strength = norm_strength_sum / agents_with_norm if agents_with_norm > 0 else 0.0
+            mean_ddm_evidence = ddm_evidence_sum / agents_without_norm if agents_without_norm > 0 else 0.0
+            total_anomalies = anomaly_sum
+            correct_norm_rate = correct_norms / agents_with_norm if agents_with_norm > 0 else 0.0
+            mean_compliance = compliance_sum / total if total > 0 else 0.0
+
+        norm_state = self._norm_detector.detect(
+            strategies, beliefs, self._current_tick,
+            norm_adoption_rate=norm_adoption_rate,
+        )
 
         return TickMetrics(
             tick=self._current_tick,
@@ -450,6 +651,16 @@ class SimulationEnvironment:
             norm_level=norm_state.level.value,
             belief_error=norm_state.mean_belief_error,
             belief_variance=norm_state.belief_variance,
+            # V5 normative metrics
+            norm_adoption_rate=norm_adoption_rate,
+            mean_norm_strength=mean_norm_strength,
+            mean_ddm_evidence=mean_ddm_evidence,
+            total_anomalies=total_anomalies,
+            norm_crises=tick_dissolutions,
+            enforcement_events=tick_enforcements,
+            norm_crystallisations=tick_crystallisations,
+            correct_norm_rate=correct_norm_rate,
+            mean_compliance=mean_compliance,
         )
 
     def _check_convergence(self, metrics: TickMetrics) -> None:
@@ -493,11 +704,15 @@ class SimulationEnvironment:
             metrics = self.step()
 
             if verbose and tick % 100 == 0:
+                norm_info = ""
+                if self._enable_normative:
+                    norm_info = f", norm_adopt={metrics.norm_adoption_rate:.0%}"
                 print(
                     f"Tick {tick}: "
                     f"dist={metrics.strategy_distribution}, "
                     f"coord_rate={metrics.coordination_rate:.2f}, "
                     f"mean_trust={metrics.mean_trust:.3f}"
+                    f"{norm_info}"
                 )
 
             if progress_callback:
@@ -532,6 +747,10 @@ class SimulationEnvironment:
                 "final_norm_level": final_metrics.norm_level,
                 "final_belief_error": final_metrics.belief_error,
                 "final_belief_variance": final_metrics.belief_variance,
+                # V5
+                "final_norm_adoption_rate": final_metrics.norm_adoption_rate,
+                "final_mean_norm_strength": final_metrics.mean_norm_strength,
+                "final_mean_compliance": final_metrics.mean_compliance,
             })
 
         # Agent final states
@@ -571,6 +790,16 @@ class SimulationEnvironment:
                 "norm_level": m.norm_level,
                 "belief_error": m.belief_error,
                 "belief_variance": m.belief_variance,
+                # V5 normative metrics
+                "norm_adoption_rate": m.norm_adoption_rate,
+                "mean_norm_strength": m.mean_norm_strength,
+                "mean_ddm_evidence": m.mean_ddm_evidence,
+                "total_anomalies": m.total_anomalies,
+                "norm_crises": m.norm_crises,
+                "enforcement_events": m.enforcement_events,
+                "norm_crystallisations": m.norm_crystallisations,
+                "correct_norm_rate": m.correct_norm_rate,
+                "mean_compliance": m.mean_compliance,
             }
             data.append(row)
 
@@ -649,5 +878,6 @@ class SimulationEnvironment:
             f"SimulationEnvironment(agents={self._num_agents}, "
             f"tick={self._current_tick}, "
             f"memory={self._config['memory_type']}, "
-            f"decision={self._decision_mode.value})"
+            f"decision={self._decision_mode.value}, "
+            f"normative={self._enable_normative})"
         )

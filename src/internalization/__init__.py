@@ -1,5 +1,10 @@
 """
-Internalization module (Future Extension).
+Internalization module (DEPRECATED).
+
+.. deprecated:: V5
+    This module is superseded by ``src.memory.normative.NormativeMemory``,
+    which implements norm internalization via DDM crystallisation,
+    compliance (sigma^k), anomaly-driven crisis, and enforcement.
 
 This module will handle norm internalization by agents:
 - When do agents "internalize" a norm vs merely comply?

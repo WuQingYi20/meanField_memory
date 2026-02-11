@@ -1,20 +1,26 @@
 """
-Agent class integrating memory, decision, and trust systems.
+Agent class integrating experience memory, decision, trust, and normative memory.
+
+V5 dual-memory architecture:
+- Experience memory (FIFO): statistical belief formation
+- Normative memory (rule-based): DDM crystallisation, anomaly tracking, enforcement
+- Predictive confidence (trust): bridges both systems
 
 Supports multiple decision modes:
-- DUAL_FEEDBACK: Original τ-based softmax (two feedback loops)
+- DUAL_FEEDBACK: Original tau-based softmax (two feedback loops)
 - COGNITIVE_LOCKIN: Probability matching with Trust (cognitive only)
 - EPSILON_GREEDY: Best response with exploration (robustness check)
 
 Supports observation-based communication:
 - Agents can observe other interactions beyond their own
 - Observations are weighted and combined with direct experience
+- Observations also feed normative memory (DDM or anomaly tracking)
 """
 
 import numpy as np
 from typing import Optional, Tuple, Dict, Any, Union, List
 
-from .memory import BaseMemory, Interaction, create_memory
+from .memory import BaseMemory, Interaction, create_memory, NormativeMemory, NormativeState
 from .decision import (
     BaseDecision, DecisionMode, create_decision,
     DualFeedbackDecision, CognitiveLockInDecision, EpsilonGreedyDecision
@@ -27,15 +33,15 @@ class Agent:
     An agent in the ABM simulation.
 
     Integrates:
-    - Memory system: Stores interaction history
+    - Experience memory: Stores interaction history (FIFO)
     - Decision mechanism: Action selection and trust dynamics
-    - Trust → Memory linkage: Trust affects memory window (for dynamic memory)
+    - Trust -> Memory linkage: Trust affects memory window (for dynamic memory)
+    - Normative memory (V5): DDM norm formation, compliance, enforcement
 
-    The agent's behavior emerges from the feedback loop:
-    - Memory informs beliefs about partner strategies
-    - Decision mechanism selects action based on beliefs
-    - Prediction accuracy updates internal state (τ or Trust)
-    - Internal state affects memory window (for dynamic memory)
+    The agent's behaviour emerges from three feedback loops:
+    1. Cognitive lock-in: prediction -> confidence -> window -> belief stability
+    2. Social amplification: observations -> belief shift -> more coordination
+    3. Normative pressure: consistency -> DDM -> norm -> compliance -> enforcement
     """
 
     def __init__(
@@ -45,21 +51,30 @@ class Agent:
         decision: BaseDecision,
         trust_manager: Optional[TrustManager] = None,
         initial_strategy: Optional[int] = None,
+        normative_memory: Optional[NormativeMemory] = None,
+        enforce_threshold: float = 0.7,
+        signal_amplification: float = 2.0,
     ):
         """
         Initialize an agent.
 
         Args:
             agent_id: Unique identifier
-            memory: Memory system instance
+            memory: Experience memory system instance
             decision: Decision mechanism instance
             trust_manager: Trust manager (optional, creates default if None)
             initial_strategy: Starting strategy (random if None)
+            normative_memory: Normative memory instance (None = V1 experience-only)
+            enforce_threshold: Min sigma for enforcement (theta_enforce)
+            signal_amplification: DDM drift multiplier for enforcement signals
         """
         self._id = agent_id
         self._memory = memory
         self._decision = decision
         self._trust_manager = trust_manager or TrustManager()
+        self._normative_memory = normative_memory
+        self._enforce_threshold = enforce_threshold
+        self._signal_amplification = signal_amplification
 
         # Initialize strategy (random if not specified)
         if initial_strategy is not None:
@@ -79,14 +94,6 @@ class Agent:
         # Observation-based communication
         self._observations: List[Tuple[int, float]] = []  # [(strategy, weight), ...]
         self._observation_weight: float = 0.5  # Weight of observed vs direct
-
-        # Normative expectations (Bicchieri 2006)
-        self._normative_expectation: np.ndarray = np.array([0.5, 0.5])
-        self._normative_weight: float = 0.3  # Weight of normative vs empirical
-
-        # Pre-play signaling (Skyrms 2010)
-        self._last_received_signal: Optional[int] = None
-        self._signal_confidence: float = 0.5
 
     def _link_memory_to_trust(self) -> None:
         """Connect dynamic memory's window to decision's trust."""
@@ -114,7 +121,7 @@ class Agent:
 
     @property
     def trust(self) -> float:
-        """Current trust level."""
+        """Current trust (predictive confidence) level."""
         return self._decision.get_trust()
 
     @property
@@ -150,6 +157,13 @@ class Agent:
 
         return combined
 
+    @property
+    def normative_state(self) -> Optional[NormativeState]:
+        """Snapshot of normative memory state, or None if not enabled."""
+        if self._normative_memory is None:
+            return None
+        return self._normative_memory.get_state()
+
     def receive_observation(self, strategy: int, weight: float = 0.5) -> None:
         """
         Receive an observation from communication.
@@ -164,113 +178,6 @@ class Agent:
         """Clear accumulated observations (called each tick)."""
         self._observations.clear()
 
-    # =========================================================================
-    # Normative Expectations (Bicchieri 2006)
-    # =========================================================================
-
-    @property
-    def normative_expectation(self) -> np.ndarray:
-        """What agent thinks others expect them to do."""
-        return self._normative_expectation.copy()
-
-    def update_normative_expectation(
-        self,
-        received_norms: np.ndarray,
-        learning_rate: float = 0.2,
-    ) -> None:
-        """
-        Update normative expectation based on received messages.
-
-        Args:
-            received_norms: [P(norm=0), P(norm=1)] from messages
-            learning_rate: How fast to update expectations
-        """
-        self._normative_expectation = (
-            (1 - learning_rate) * self._normative_expectation +
-            learning_rate * received_norms
-        )
-
-    def get_combined_expectation(self) -> np.ndarray:
-        """
-        Get combined expectation (empirical + normative).
-
-        Following Bicchieri (2006):
-        - Empirical: What do others DO?
-        - Normative: What do others EXPECT me to do?
-
-        Returns:
-            Weighted combination of empirical belief and normative expectation
-        """
-        empirical = self.belief  # What others do
-        normative = self._normative_expectation  # What others expect
-
-        combined = (
-            (1 - self._normative_weight) * empirical +
-            self._normative_weight * normative
-        )
-        return combined
-
-    def express_normative_belief(self) -> Tuple[int, float]:
-        """
-        Express what this agent thinks SHOULD be done.
-
-        Returns:
-            (expressed_norm, confidence)
-        """
-        # Tend to express current strategy as the norm (cognitive consistency)
-        expressed = self._current_strategy
-        confidence = max(self._normative_expectation)
-        return expressed, confidence
-
-    # =========================================================================
-    # Pre-play Signaling (Skyrms 2010)
-    # =========================================================================
-
-    def receive_signal(self, signal: int, confidence: float) -> None:
-        """
-        Receive pre-play signal from interaction partner.
-
-        Args:
-            signal: Partner's signaled intention
-            confidence: Confidence in signal honesty
-        """
-        self._last_received_signal = signal
-        self._signal_confidence = confidence
-
-    def get_signal_adjusted_belief(self) -> np.ndarray:
-        """
-        Get belief adjusted for received signal.
-
-        If a signal was received, incorporate it into belief.
-        The adjustment follows a convention: agents with lower trust
-        defer more strongly to signals (creates coordination focal point).
-        """
-        base_belief = self.belief
-
-        if self._last_received_signal is None:
-            return base_belief
-
-        # Signal shifts belief toward signaled strategy
-        signal_belief = np.zeros(2)
-        signal_belief[self._last_received_signal] = 1.0
-
-        # Effective signal weight increases with lower trust
-        # Low trust agents defer more to signals (convention for breaking ties)
-        trust = self._decision.get_trust()
-        defer_factor = 1.0 - trust * 0.5  # Range: [0.5, 1.0] as trust goes [1, 0]
-        effective_confidence = self._signal_confidence * defer_factor
-
-        adjusted = (
-            (1 - effective_confidence) * base_belief +
-            effective_confidence * signal_belief
-        )
-        return adjusted
-
-    def clear_signal(self) -> None:
-        """Clear received signal (after interaction)."""
-        self._last_received_signal = None
-        self._signal_confidence = 0.5
-
     @property
     def memory_window(self) -> int:
         """Current effective memory window size."""
@@ -280,37 +187,29 @@ class Agent:
             return self._memory.get_effective_window()
         return self._memory.max_size
 
-    def choose_action(self, use_signal: bool = True) -> Tuple[int, int]:
+    def choose_action(self) -> Tuple[int, int]:
         """
-        Choose an action based on current beliefs and received signals.
+        Choose an action based on current beliefs, optionally constrained by norm.
 
-        In coordination games, signals communicate intended actions.
-        The rational response is to match the signal to coordinate.
-
-        Args:
-            use_signal: If True and a signal was received, consider following it
+        V5 effective belief integration (Eq. 13-15):
+        - b_exp: experience-based belief from memory
+        - If norm exists: b_eff = compliance * b_norm + (1 - compliance) * b_exp
+        - If no norm: b_eff = b_exp
 
         Returns:
             Tuple of (chosen_action, predicted_partner_action)
         """
-        belief = self._memory.get_strategy_distribution()
+        b_exp = self._memory.get_strategy_distribution()
 
-        # If we received a signal, consider following it to coordinate
-        if use_signal and self._last_received_signal is not None:
-            # Probability of following signal increases with confidence
-            # In coordination games, following signals is rational
-            follow_prob = self._signal_confidence
-
-            if np.random.random() < follow_prob:
-                # Follow the signal: play what partner signaled they'll play
-                action = self._last_received_signal
-                prediction = self._last_received_signal
-            else:
-                # Don't follow signal: use normal decision mechanism
-                action, prediction = self._decision.choose_action(belief)
+        # V5: normative constraint
+        if self._normative_memory is not None and self._normative_memory.has_norm():
+            compliance = self._normative_memory.get_compliance()
+            b_norm = self._normative_memory.get_norm_belief()
+            b_eff = compliance * b_norm + (1.0 - compliance) * b_exp
         else:
-            # No signal: use normal decision mechanism
-            action, prediction = self._decision.choose_action(belief)
+            b_eff = b_exp
+
+        action, prediction = self._decision.choose_action(b_eff)
 
         # Track for later update
         self._last_prediction = prediction
@@ -347,7 +246,7 @@ class Agent:
             payoff=payoff,
         )
 
-        # Update memory
+        # Update experience memory
         self._memory.add(interaction)
 
         # Update decision mechanism based on prediction accuracy
@@ -358,6 +257,109 @@ class Agent:
         self._total_interactions += 1
         if success:
             self._successful_coordinations += 1
+
+    # =========================================================================
+    # V5 Normative Memory Processing
+    # =========================================================================
+
+    def process_normative_observations(
+        self,
+        observed_strategies: List[int],
+    ) -> Tuple[bool, bool, int]:
+        """
+        Process observations through normative memory.
+
+        Each observed strategy is routed to the appropriate normative process:
+        - If no norm: feeds DDM evidence accumulator
+        - If norm exists: checks for anomalies
+
+        After processing all observations, checks for crisis/dissolution.
+
+        Args:
+            observed_strategies: List of strategies observed this tick
+
+        Returns:
+            Tuple of (crystallised, dissolved, enforcement_count):
+            - crystallised: True if a new norm formed this tick
+            - dissolved: True if an existing norm was overthrown
+            - enforcement_count: Number of enforcement signals triggered
+        """
+        if self._normative_memory is None:
+            return (False, False, 0)
+
+        crystallised = False
+        dissolved = False
+        enforcement_count = 0
+
+        if not self._normative_memory.has_norm():
+            # Pre-crystallisation: feed DDM
+            if observed_strategies:
+                counts = np.zeros(2)
+                for s in observed_strategies:
+                    counts[s] += 1
+                total = len(observed_strategies)
+                consistency = max(counts) / total
+                dominant = int(np.argmax(counts))
+
+                crystallised = self._normative_memory.update_evidence(
+                    confidence=self.trust,
+                    consistency=consistency,
+                    dominant_strategy=dominant,
+                )
+        else:
+            # Post-crystallisation: anomaly tracking + enforcement
+            for s in observed_strategies:
+                if self._normative_memory.should_enforce(s, self._enforce_threshold):
+                    self._normative_memory.record_enforcement()
+                    enforcement_count += 1
+                else:
+                    self._normative_memory.record_anomaly(s)
+
+            dissolved = self._normative_memory.check_crisis()
+
+        return (crystallised, dissolved, enforcement_count)
+
+    def get_enforcement_signal(
+        self,
+        observed_strategies: List[int],
+    ) -> Optional[int]:
+        """
+        Check if this agent should broadcast an enforcement signal.
+
+        Returns the norm strategy to broadcast if enforcement conditions are met
+        for any observed violation, or None.
+
+        Args:
+            observed_strategies: Strategies observed this tick
+
+        Returns:
+            The norm strategy to broadcast, or None if no enforcement
+        """
+        if self._normative_memory is None or not self._normative_memory.has_norm():
+            return None
+
+        for s in observed_strategies:
+            if self._normative_memory.should_enforce(s, self._enforce_threshold):
+                return self._normative_memory.norm
+
+        return None
+
+    def receive_normative_signal(self, signaled_strategy: int) -> None:
+        """
+        Receive a normative enforcement signal from another agent.
+
+        Boosts DDM drift rate for the next evidence update.
+        Only effective if this agent has not yet crystallised a norm.
+
+        Args:
+            signaled_strategy: The norm strategy being enforced
+        """
+        if self._normative_memory is not None:
+            self._normative_memory.receive_signal(self._signal_amplification)
+
+    # =========================================================================
+    # Metrics and Reset
+    # =========================================================================
 
     def get_metrics(self) -> Dict[str, Any]:
         """
@@ -388,6 +390,17 @@ class Agent:
         # Add decision-specific state
         metrics.update(self._decision.get_state())
 
+        # Add normative state if enabled
+        if self._normative_memory is not None:
+            ns = self._normative_memory.get_state()
+            metrics["norm"] = ns.norm
+            metrics["norm_strength"] = ns.strength
+            metrics["norm_anomalies"] = ns.anomaly_count
+            metrics["norm_evidence"] = ns.evidence
+            metrics["has_norm"] = ns.has_norm
+            metrics["compliance"] = ns.compliance
+            metrics["enforcement_count"] = ns.enforcement_count
+
         return metrics
 
     def reset(self, initial_strategy: Optional[int] = None) -> None:
@@ -411,15 +424,17 @@ class Agent:
         self._strategy_switches = 0
         self._last_prediction = None
 
-        # Reset communication state
-        self._normative_expectation = np.array([0.5, 0.5])
-        self._last_received_signal = None
-        self._signal_confidence = 0.5
+        # Reset normative memory if present
+        if self._normative_memory is not None:
+            self._normative_memory.reset()
 
     def __repr__(self) -> str:
+        norm_str = ""
+        if self._normative_memory is not None and self._normative_memory.has_norm():
+            norm_str = f", norm={self._normative_memory.norm}"
         return (
             f"Agent(id={self._id}, strategy={self._current_strategy}, "
-            f"mode={self.decision_mode.value}, trust={self.trust:.3f})"
+            f"mode={self.decision_mode.value}, trust={self.trust:.3f}{norm_str})"
         )
 
 
@@ -445,6 +460,18 @@ def create_agent(
     beta: float = 0.3,
     # For EPSILON_GREEDY mode
     exploration_mode: str = "random",
+    # Normative memory (V5)
+    enable_normative: bool = False,
+    ddm_noise: float = 0.1,
+    crystal_threshold: float = 3.0,
+    normative_initial_strength: float = 0.8,
+    crisis_threshold: int = 10,
+    crisis_decay: float = 0.3,
+    min_strength: float = 0.1,
+    enforce_threshold: float = 0.7,
+    compliance_exponent: float = 2.0,
+    signal_amplification: float = 2.0,
+    normative_rng: Optional[np.random.RandomState] = None,
     # Other
     initial_strategy: Optional[int] = None,
 ) -> Agent:
@@ -468,6 +495,17 @@ def create_agent(
         alpha: Trust increase rate (COGNITIVE_LOCKIN, EPSILON_GREEDY)
         beta: Trust decay rate (COGNITIVE_LOCKIN, EPSILON_GREEDY)
         exploration_mode: 'random' or 'opposite' (EPSILON_GREEDY)
+        enable_normative: Whether to create normative memory (V5)
+        ddm_noise: DDM noise sigma_noise
+        crystal_threshold: Evidence threshold theta_crystal
+        normative_initial_strength: Norm strength on crystallisation
+        crisis_threshold: Anomaly count for crisis
+        crisis_decay: Strength decay on crisis
+        min_strength: Below this, norm dissolves
+        enforce_threshold: Min sigma for enforcement
+        compliance_exponent: Exponent k in sigma^k
+        signal_amplification: DDM drift multiplier gamma_signal
+        normative_rng: Per-agent RNG for normative memory
         initial_strategy: Starting strategy
 
     Returns:
@@ -525,10 +563,27 @@ def create_agent(
         memory_max=dynamic_max,
     )
 
+    # Create normative memory if enabled (V5)
+    normative_memory = None
+    if enable_normative:
+        normative_memory = NormativeMemory(
+            ddm_noise=ddm_noise,
+            crystal_threshold=crystal_threshold,
+            initial_strength=normative_initial_strength,
+            crisis_threshold=crisis_threshold,
+            crisis_decay=crisis_decay,
+            min_strength=min_strength,
+            compliance_exponent=compliance_exponent,
+            rng=normative_rng or np.random.RandomState(),
+        )
+
     return Agent(
         agent_id=agent_id,
         memory=memory,
         decision=decision,
         trust_manager=trust_manager,
         initial_strategy=initial_strategy,
+        normative_memory=normative_memory,
+        enforce_threshold=enforce_threshold,
+        signal_amplification=signal_amplification,
     )

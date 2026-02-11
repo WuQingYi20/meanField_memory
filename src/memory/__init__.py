@@ -11,6 +11,7 @@ from .base import BaseMemory, Interaction
 from .fixed import FixedMemory
 from .decay import DecayMemory
 from .dynamic import DynamicMemory
+from .normative import NormativeMemory, NormativeState
 
 __all__ = [
     "BaseMemory",
@@ -18,6 +19,8 @@ __all__ = [
     "FixedMemory",
     "DecayMemory",
     "DynamicMemory",
+    "NormativeMemory",
+    "NormativeState",
 ]
 
 

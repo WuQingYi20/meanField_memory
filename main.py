@@ -174,6 +174,67 @@ Examples:
         help="Exploration mode for epsilon_greedy (default: random)",
     )
 
+    # V5: Normative memory settings
+    parser.add_argument(
+        "--normative",
+        action="store_true",
+        help="Enable normative memory (V5 dual-memory model)",
+    )
+    parser.add_argument(
+        "--observation-k",
+        type=int,
+        default=3,
+        help="Number of interactions to observe per tick (default: 3)",
+    )
+    parser.add_argument(
+        "--ddm-noise",
+        type=float,
+        default=0.1,
+        help="DDM noise sigma_noise (default: 0.1)",
+    )
+    parser.add_argument(
+        "--crystal-threshold",
+        type=float,
+        default=3.0,
+        help="DDM evidence threshold for crystallisation (default: 3.0)",
+    )
+    parser.add_argument(
+        "--normative-strength",
+        type=float,
+        default=0.8,
+        help="Initial norm strength on crystallisation (default: 0.8)",
+    )
+    parser.add_argument(
+        "--crisis-threshold",
+        type=int,
+        default=10,
+        help="Anomaly count triggering crisis (default: 10)",
+    )
+    parser.add_argument(
+        "--crisis-decay",
+        type=float,
+        default=0.3,
+        help="Strength decay on crisis (default: 0.3)",
+    )
+    parser.add_argument(
+        "--enforce-threshold",
+        type=float,
+        default=0.7,
+        help="Min norm strength for enforcement (default: 0.7)",
+    )
+    parser.add_argument(
+        "--compliance-exponent",
+        type=float,
+        default=2.0,
+        help="Exponent k in compliance = sigma^k (default: 2.0)",
+    )
+    parser.add_argument(
+        "--signal-amplification",
+        type=float,
+        default=2.0,
+        help="DDM drift multiplier from enforcement signals (default: 2.0)",
+    )
+
     # Simulation settings
     parser.add_argument(
         "--ticks", "-t",
@@ -247,12 +308,26 @@ def run_simulation(args):
         beta=args.beta,
         exploration_mode=args.exploration_mode,
         random_seed=args.seed,
+        # V5: Normative memory
+        observation_k=args.observation_k if args.normative else 0,
+        enable_normative=args.normative,
+        ddm_noise=args.ddm_noise,
+        crystal_threshold=args.crystal_threshold,
+        normative_initial_strength=args.normative_strength,
+        crisis_threshold=args.crisis_threshold,
+        crisis_decay=args.crisis_decay,
+        enforce_threshold=args.enforce_threshold,
+        compliance_exponent=args.compliance_exponent,
+        signal_amplification=args.signal_amplification,
     )
 
     print(f"\nConfiguration:")
     print(f"  Agents: {args.agents}")
     print(f"  Decision mode: {args.mode}")
     print(f"  Memory: {args.memory}")
+    if args.normative:
+        print(f"  Normative memory: ENABLED")
+        print(f"  Observation k: {args.observation_k}")
     print(f"  Max ticks: {args.ticks}")
     print(f"  Seed: {args.seed}")
     print()
@@ -277,6 +352,11 @@ def run_simulation(args):
     print(f"  Majority fraction: {result.final_state['final_majority_fraction']:.1%}")
     print(f"  Final mean trust: {result.final_state['final_mean_trust']:.1%}")
     print(f"  Final mean memory window: {result.final_state['final_mean_memory_window']:.2f}")
+    if args.normative:
+        print(f"  Norm level: {result.final_state.get('final_norm_level', 0)}")
+        print(f"  Norm adoption rate: {result.final_state.get('final_norm_adoption_rate', 0.0):.1%}")
+        print(f"  Mean norm strength: {result.final_state.get('final_mean_norm_strength', 0.0):.3f}")
+        print(f"  Mean compliance: {result.final_state.get('final_mean_compliance', 0.0):.3f}")
 
     # Save results
     if not args.no_save:

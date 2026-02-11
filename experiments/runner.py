@@ -53,6 +53,18 @@ class ExperimentConfig:
     random_seed: Optional[int] = None
     convergence_threshold: float = 0.95
     convergence_window: int = 50
+    # V5: Normative memory settings
+    enable_normative: bool = False
+    observation_k: int = 0
+    ddm_noise: float = 0.1
+    crystal_threshold: float = 3.0
+    normative_initial_strength: float = 0.8
+    crisis_threshold: int = 10
+    crisis_decay: float = 0.3
+    min_strength: float = 0.1
+    enforce_threshold: float = 0.7
+    compliance_exponent: float = 2.0
+    signal_amplification: float = 2.0
 
 
 @dataclass
@@ -68,6 +80,10 @@ class ExperimentResult:
     final_mean_trust: float
     final_mean_memory_window: float
     run_time_seconds: float
+    # V5: Normative results
+    final_norm_level: int = 0
+    final_norm_adoption_rate: float = 0.0
+    final_mean_norm_strength: float = 0.0
 
 
 def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
@@ -108,6 +124,18 @@ def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
         convergence_threshold=config.convergence_threshold,
         convergence_window=config.convergence_window,
         random_seed=config.random_seed,
+        # V5: Normative memory
+        observation_k=config.observation_k,
+        enable_normative=config.enable_normative,
+        ddm_noise=config.ddm_noise,
+        crystal_threshold=config.crystal_threshold,
+        normative_initial_strength=config.normative_initial_strength,
+        crisis_threshold=config.crisis_threshold,
+        crisis_decay=config.crisis_decay,
+        min_strength=config.min_strength,
+        enforce_threshold=config.enforce_threshold,
+        compliance_exponent=config.compliance_exponent,
+        signal_amplification=config.signal_amplification,
     )
 
     result = env.run(max_ticks=config.max_ticks, early_stop=True, verbose=False)
@@ -124,6 +152,10 @@ def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
         final_mean_trust=result.final_state.get("final_mean_trust", 0.5),
         final_mean_memory_window=result.final_state.get("final_mean_memory_window", 5.0),
         run_time_seconds=run_time,
+        # V5
+        final_norm_level=result.final_state.get("final_norm_level", 0),
+        final_norm_adoption_rate=result.final_state.get("final_norm_adoption_rate", 0.0),
+        final_mean_norm_strength=result.final_state.get("final_mean_norm_strength", 0.0),
     )
 
 
@@ -225,6 +257,7 @@ class ExperimentRunner:
                 "initial_trust": result.config.initial_trust,
                 "alpha": result.config.alpha,
                 "beta": result.config.beta,
+                "enable_normative": result.config.enable_normative,
                 "random_seed": result.config.random_seed,
                 "converged": result.converged,
                 "convergence_tick": result.convergence_tick,
@@ -233,6 +266,9 @@ class ExperimentRunner:
                 "final_majority_fraction": result.final_majority_fraction,
                 "final_mean_trust": result.final_mean_trust,
                 "final_mean_memory_window": result.final_mean_memory_window,
+                "final_norm_level": result.final_norm_level,
+                "final_norm_adoption_rate": result.final_norm_adoption_rate,
+                "final_mean_norm_strength": result.final_mean_norm_strength,
                 "run_time_seconds": result.run_time_seconds,
             }
             rows.append(row)
@@ -269,6 +305,9 @@ class ExperimentRunner:
                 "final_majority_fraction": result.final_majority_fraction,
                 "final_mean_trust": result.final_mean_trust,
                 "final_mean_memory_window": result.final_mean_memory_window,
+                "final_norm_level": result.final_norm_level,
+                "final_norm_adoption_rate": result.final_norm_adoption_rate,
+                "final_mean_norm_strength": result.final_mean_norm_strength,
                 "run_time_seconds": result.run_time_seconds,
             }
             json_data.append(item)
@@ -639,12 +678,88 @@ def run_trust_parameter_comparison(
     return df
 
 
+def run_v5_factorial(
+    num_agents: int = 100,
+    max_ticks: int = 1000,
+    n_trials: int = 10,
+    observation_k: int = 3,
+    output_dir: str = "data/experiments",
+    n_workers: int = 4,
+) -> pd.DataFrame:
+    """
+    Run 2x2 factorial experiment: memory_type × normative_enabled.
+
+    Conditions:
+    1. fixed memory, normative off  (experience-only baseline)
+    2. fixed memory, normative on   (normative-only)
+    3. dynamic memory, normative off (adaptive memory only)
+    4. dynamic memory, normative on  (full dual-memory V5)
+
+    Args:
+        num_agents: Number of agents
+        max_ticks: Maximum ticks
+        n_trials: Trials per condition
+        observation_k: Number of observed interactions per tick
+        output_dir: Output directory
+        n_workers: Parallel workers
+
+    Returns:
+        DataFrame with comparison results
+    """
+    conditions = [
+        ("fixed", False),
+        ("fixed", True),
+        ("dynamic", False),
+        ("dynamic", True),
+    ]
+
+    configs = []
+    for memory_type, normative in conditions:
+        label = f"{memory_type}_norm{'On' if normative else 'Off'}"
+        for trial in range(n_trials):
+            config = ExperimentConfig(
+                name=f"{label}_trial{trial}",
+                num_agents=num_agents,
+                memory_type=memory_type,
+                decision_mode="cognitive_lockin",
+                enable_normative=normative,
+                observation_k=observation_k if normative else 0,
+                max_ticks=max_ticks,
+                random_seed=trial,
+            )
+            configs.append(config)
+
+    runner = ExperimentRunner(output_dir=output_dir, n_workers=n_workers)
+    runner.run_experiments(configs)
+
+    df = runner.get_results_dataframe()
+    runner.save_results("v5_factorial")
+
+    # Print summary
+    print("\n=== V5 Factorial: Memory Type x Normative ===")
+    df["condition"] = df["name"].apply(lambda x: x.rsplit("_trial", 1)[0])
+    summary = df.groupby("condition").agg({
+        "converged": "mean",
+        "convergence_tick": "mean",
+        "final_majority_fraction": "mean",
+        "final_mean_trust": "mean",
+        "final_norm_adoption_rate": "mean",
+        "final_mean_norm_strength": "mean",
+    }).round(3)
+    print(summary)
+
+    return df
+
+
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) > 1 and sys.argv[1] == "--trust":
         print("Running trust parameter comparison...")
         df = run_trust_parameter_comparison(num_agents=50, n_trials=5, n_workers=2)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--v5":
+        print("Running V5 factorial experiment...")
+        df = run_v5_factorial(num_agents=50, n_trials=5, n_workers=2)
     else:
         print("Running decision mode comparison experiment...")
         df = run_decision_mode_comparison(num_agents=50, n_trials=5, n_workers=2)
