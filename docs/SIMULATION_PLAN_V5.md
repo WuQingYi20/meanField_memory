@@ -82,7 +82,7 @@ class Agent:
         b_exp = self._memory.get_strategy_distribution()
 
         if self._normative_memory and self._normative_memory.has_norm():
-            compliance = (1 - self.trust) ** compliance_exponent
+            compliance = self._normative_memory.strength ** compliance_exponent
             b_norm = self._normative_memory.get_norm_belief()
             b_eff = compliance * b_norm + (1 - compliance) * b_exp
         else:
@@ -107,7 +107,7 @@ class Agent:
 
         Conditions (ALL must hold):
         1. Has norm (r_i ≠ ∅)
-        2. Trust > θ_enforce
+        2. Norm strength σ_i > θ_enforce
         3. observed_strategy ≠ norm
 
         Returns: norm strategy to broadcast, or None
@@ -414,7 +414,7 @@ When should agents enforce vs update?
 **Predictions:**
 - θ=0.3: Too many enforcers too early → may enforce wrong norm
 - θ=0.5: Moderate — some premature enforcement
-- θ=0.7 (default): Only confident agents enforce → robust
+- θ=0.7 (default): Only high-conviction (high-σ) agents enforce → robust
 - θ=0.9: Very few enforcers → normative pressure weak, similar to Condition C
 
 ---
@@ -442,7 +442,7 @@ norm_crises,               # norms dissolved this tick
 enforcement_events,        # normative signals sent this tick
 norm_crystallisations,     # new norms formed this tick
 correct_norm_rate,         # fraction with norm matching majority (post-hoc)
-mean_compliance            # mean (1-T)^k across norm-holders
+mean_compliance            # mean σ^k across norm-holders
 ```
 
 ### 3.2 Per-Agent Snapshot (at specific ticks)
@@ -494,7 +494,7 @@ Event types:
 |------------|------|------|----------|
 | H1: Stochastic formation | Variance of crystallisation tick | Exp 1D | CV > 0.3 |
 | H2: Low-trust first | Correlation: trust @ crystallisation vs order | Exp 1D | r < -0.5 |
-| H3: Asymmetric response | Enforcement rate vs anomaly rate by trust bin | Exp 1D | Significant split at θ_enforce |
+| H3: Asymmetric response | Enforcement rate vs anomaly rate by norm-strength bin | Exp 1D | Significant split at θ_enforce |
 | H4: Enforcement cascade | Norm adoption rate slope before/after first enforcement | Exp 1D | Slope increase > 2× |
 | H5: Interaction effect | 2×2 ANOVA interaction term | Exp 1 | p < 0.01 |
 | H6: Sustained anomaly | Norm survival under mild vs sustained shock | Exp 5 | Survival: mild > 90%, sustained < 50% |
