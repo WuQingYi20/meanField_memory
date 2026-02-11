@@ -6,28 +6,51 @@
     "decay_rate": 0.9,
     "dynamic_base": 2,
     "dynamic_max": 6,
+    "decision_mode": "cognitive_lockin",
     "initial_tau": 1.0,
     "tau_min": 0.1,
     "tau_max": 2.0,
     "cooling_rate": 0.1,
     "heating_penalty": 0.3,
+    "initial_trust": 0.5,
+    "alpha": 0.1,
+    "beta": 0.3,
+    "exploration_mode": "random",
     "convergence_threshold": 0.95,
     "convergence_window": 50,
-    "random_seed": 42
+    "random_seed": 42,
+    "observation_k": 0,
+    "observation_weight": 0.5,
+    "enable_normative": false,
+    "ddm_noise": 0.1,
+    "crystal_threshold": 3.0,
+    "normative_initial_strength": 0.8,
+    "crisis_threshold": 10,
+    "crisis_decay": 0.3,
+    "min_strength": 0.1,
+    "enforce_threshold": 0.7,
+    "compliance_exponent": 2.0,
+    "signal_amplification": 2.0
   },
   "final_state": {
-    "final_tick": 500,
-    "converged": false,
-    "convergence_tick": null,
+    "final_tick": 644,
+    "converged": true,
+    "convergence_tick": 595,
     "final_distribution": [
-      0.49,
-      0.51
+      0.99,
+      0.01
     ],
-    "final_majority_strategy": 1,
-    "final_majority_fraction": 0.51,
-    "final_mean_tau": 1.6956415069122677,
-    "final_mean_trust": 0.16018868057249075
+    "final_majority_strategy": 0,
+    "final_majority_fraction": 0.99,
+    "final_mean_trust": 0.9746839017121167,
+    "final_mean_memory_window": 4.99,
+    "final_norm_level": 3,
+    "final_belief_error": 0.015900000000000008,
+    "final_belief_variance": 0.0013827499999999994,
+    "final_norm_adoption_rate": 0.0,
+    "final_mean_norm_strength": 0.0,
+    "final_mean_compliance": 0.0
   },
-  "converged": false,
-  "convergence_tick": null
+  "converged": true,
+  "convergence_tick": 595
 }

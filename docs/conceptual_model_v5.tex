@@ -126,6 +126,8 @@ C_i(t) (1 - \beta) & \text{if prediction wrong}
 \end{cases}
 \end{equation}
 
+Prior to each interaction, agent $i$ forms a prediction $\hat{s}_j$ of its partner's strategy. A prediction is \emph{correct} when $\hat{s}_j = s_j$ (the partner's actual choice), regardless of agent $i$'s own action or the resulting payoff. In pure coordination games, prediction accuracy and coordination success are highly correlated, but they are conceptually independent: an agent may predict correctly yet fail to coordinate (e.g., due to stochastic action selection), or coordinate by chance despite an incorrect prediction. This distinction becomes substantive when generalising to asymmetric games, where predicting a partner's behaviour and achieving a favourable outcome may diverge systematically.
+
 Asymmetric by design \citep{slovic1993perceived}: predictive confidence builds slowly through successful predictions (additive, saturating) and collapses quickly after prediction failures (multiplicative). This mirrors the empirical finding that perceived environmental stability is easier to disconfirm than to establish. Steady state:
 \begin{equation}\label{eq:confidence_steady}
 C^* = \frac{p\alpha}{p\alpha + (1-p)\beta}
