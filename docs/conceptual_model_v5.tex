@@ -176,6 +176,8 @@ Norm formation follows a drift-diffusion process \citep{germar2014social,germar2
 
 \paragraph{Theoretical basis.} \citet{germar2014social} showed that social norms alter the drift rate in perceptual decision-making. \citet{germar2019learning} demonstrated that this alteration \emph{persists} after social influence is removed---norms are internalised as a persistent cognitive bias, not a transient effect. \citet{tenenbaum2011grow} established that rule learning from examples is fundamentally probabilistic (Bayesian inference over rule hypotheses).
 
+\paragraph{Evidence grade (strong mechanism, provisional functional form).} The empirical support for a diffusion-style mechanism is strong, but Eq.~\ref{eq:drift} is a modelling choice rather than a directly estimated law. In particular, the linear confidence gate $(1-C_i)$ should be treated as a testable assumption. Alternative gates (e.g., logistic or thresholded) are plausible and should be compared against data.
+
 \paragraph{Mechanism.} At each tick, if $r_i = \varnothing$ (no norm yet):
 
 \begin{align}
@@ -184,7 +186,7 @@ e_i(t\!+\!1) &= \max\!\big(0,\; e_i(t) + \text{drift}_i + \mathcal{N}(0, \sigma_
 \text{If } e_i &> \theta_{\text{crystal}}: \quad r_i \leftarrow s^*,\;\; \sigma_i \leftarrow \sigma_0,\;\; a_i \leftarrow 0 \label{eq:crystal}
 \end{align}
 
-where $\text{consistency} = \max(f_A, f_B)$ over observed strategies, $s^*$ is the dominant observed strategy, and $\theta_{\text{crystal}}$ is the crystallisation threshold.
+where $\text{consistency} = \max(f_A, f_B)$ over observed strategies, $s^*$ is the dominant observed strategy, and $\theta_{\text{crystal}}$ is the crystallisation threshold. We therefore interpret Eq.~\ref{eq:drift}--\ref{eq:crystal} as a falsifiable candidate implementation of a confidence-gated norm uptake process, not as a uniquely identified update law.
 
 \paragraph{Properties.}
 \begin{itemize}[itemsep=2pt]
@@ -225,11 +227,13 @@ r_i \leftarrow \varnothing, \quad e_i \leftarrow 0 \quad \text{(norm dissolved; 
 
 This mirrors Kuhn's (\citeyear{kuhn1962structure}) paradigm shifts: normal science tolerates anomalies until a crisis threshold triggers revolution.
 
+\paragraph{Evidence grade (direction supported, operator exploratory).} Empirical and theoretical literatures support non-linear norm erosion and tipping under sustained violations, but the exact operator in Eq.~\ref{eq:crisis} is a candidate implementation. The anomaly accumulator and multiplicative decay should be validated against alternative collapse operators.
+
 % =====================================================================
 \section{Decision Integration}\label{sec:decision}
 % =====================================================================
 
-When a norm exists, it constrains the experience-based belief:
+When a norm exists, it constrains the experience-based belief. We model this constraint with a power-family mapping:
 
 \begin{align}
 \text{compliance}_i &= \sigma_i^k, \quad k > 1 \label{eq:compliance} \\
@@ -254,6 +258,8 @@ Norm strength $\sigma$ & Compliance $\sigma^2$ & Behaviour \\
 \end{center}
 
 \paragraph{Why norm strength, not confidence?} The previous formulation $\text{compliance}_i = (1 - C_i)^k$ creates a paradox: as agents successfully coordinate, their predictive confidence $C$ rises, which \emph{reduces} compliance with the very norm that made them successful. At $C = 0.9$, compliance would be only 0.01---the agent essentially ignores the norm. This conflates two distinct concepts: predictive confidence (``I can predict what will happen''---an epistemic assessment) and norm independence (``I don't need the norm''---a decision to override normative constraints). An agent can be highly confident \emph{and} highly norm-compliant, precisely when the norm is the source of that confidence.
+
+\paragraph{Evidence grade (moderate for monotonicity, exploratory for shape).} Existing evidence supports the directional claim that stronger internalisation should predict stronger compliance. However, the exact power form $\sigma_i^k$ and the value of $k$ are not treated here as fixed empirical constants; they are candidate functions to be compared with alternatives (e.g., linear or logistic mappings).
 
 The literature supports this correction. \citet{bicchieri2006grammar} argues that norm compliance is conditional on empirical expectations---believing others follow the norm. High predictive confidence means strong empirical expectations, which should \emph{increase} compliance, not decrease it. \citet{rendell2010copy} found that winning strategies in the social learning tournament relied almost exclusively on social learning even when personal information was available; confident agents did not abandon social information. \citet{gintis2003internalization} showed that internalised norms create intrinsic motivation to comply, and \citet{axelrod1986evolutionary} demonstrated that internalisation makes compliance robust by making ``the temptation to defect negative rather than positive.'' \citet{andrighetto2015agents} found that once norms are internalised, agents pursue compliance ``as an end in itself,'' with compliance strength proportional to norm salience. \citet{will2023stronger} confirmed that ``stronger norm internalisation is associated with stronger norm compliance'' and behavioural inflexibility.
 
@@ -282,6 +288,8 @@ Norm enforcement is \textbf{reactive}, not proactive. An agent broadcasts a norm
     \item \citet{toribio2023proof}: across six studies, ambiguity about whether a violation occurred \emph{significantly reduces} punishment. Certainty is a prerequisite for enforcement.
     \item \citet{skitka2010moral}: moral conviction predicts willingness to enforce and resistance to conformity pressure
 \end{itemize}
+
+The evidence above strongly supports a certainty-sensitive enforcement boundary (whether a violation is interpreted as a violation). However, $\theta_{\text{enforce}}$ itself is treated as a calibratable model parameter, not a literature-fixed constant.
 
 \subsection{Asymmetric Response to Violations}
 
@@ -477,9 +485,20 @@ Nearly all agents have norm $+$ high norm strength. Violations are rare and imme
     Introduce controlled violations. Expected: norm persists under sparse violations; collapses abruptly after sustained violations exceed $\theta_{\text{crisis}}$.
 \end{description}
 
+\subsection{What Evidence Would Revise This Model}
+
+\begin{itemize}[itemsep=2pt]
+    \item If low-confidence agents do not internalise earlier than high-confidence agents, revise the confidence gate in Eq.~\ref{eq:drift}.
+    \item If compliance does not increase monotonically with internalisation-strength proxies, revise Eq.~\ref{eq:compliance} and compare alternative mappings.
+    \item If ambiguity in violation interpretation does not reduce enforcement, revise the current enforcement gate and threshold assumptions.
+    \item If observed norm collapse is gradual under sustained anomalies, replace the current crisis operator (Eq.~\ref{eq:crisis}) with a better-supported erosion process.
+\end{itemize}
+
 % =====================================================================
 \section{Parameters}
 % =====================================================================
+
+Unless otherwise noted, parameters in the normative layer are candidate defaults for simulation and are intended for calibration, sensitivity analysis, and model comparison rather than direct one-to-one empirical estimation.
 
 \begin{table}[h]
 \centering
@@ -500,8 +519,8 @@ Initial norm strength & $\sigma_0$ & 0.8 & Normative & --- \\
 Crisis threshold & $\theta_{\text{crisis}}$ & 10 & Normative & --- \\
 Crisis decay & $\lambda_{\text{crisis}}$ & 0.3 & Normative & --- \\
 \midrule
-Enforcement threshold (on $\sigma$) & $\theta_{\text{enforce}}$ & 0.7 & Normative & \citet{toribio2023proof} \\
-Compliance exponent & $k$ & 2 & Both & --- \\
+Enforcement threshold (on $\sigma$) & $\theta_{\text{enforce}}$ & 0.7 & Normative & boundary condition from \citet{toribio2023proof}; value calibrated \\
+Compliance exponent & $k$ & 2 & Both & candidate function shape; model comparison \\
 Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & --- \\
 \bottomrule
 \end{tabular}
