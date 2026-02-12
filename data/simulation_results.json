@@ -1,7 +1,7 @@
 {
   "config": {
-    "num_agents": 100,
-    "memory_type": "dynamic",
+    "num_agents": 10,
+    "memory_type": "fixed",
     "memory_size": 5,
     "decay_rate": 0.9,
     "dynamic_base": 2,
@@ -33,24 +33,24 @@
     "signal_amplification": 2.0
   },
   "final_state": {
-    "final_tick": 644,
-    "converged": true,
-    "convergence_tick": 595,
+    "final_tick": 100,
+    "converged": false,
+    "convergence_tick": null,
     "final_distribution": [
-      0.99,
-      0.01
+      1.0,
+      0.0
     ],
     "final_majority_strategy": 0,
-    "final_majority_fraction": 0.99,
-    "final_mean_trust": 0.9746839017121167,
-    "final_mean_memory_window": 4.99,
-    "final_norm_level": 3,
-    "final_belief_error": 0.015900000000000008,
-    "final_belief_variance": 0.0013827499999999994,
+    "final_majority_fraction": 1.0,
+    "final_mean_trust": 0.9677211146306968,
+    "final_mean_memory_window": 5.0,
+    "final_norm_level": 0,
+    "final_belief_error": 0.0,
+    "final_belief_variance": 0.0,
     "final_norm_adoption_rate": 0.0,
     "final_mean_norm_strength": 0.0,
     "final_mean_compliance": 0.0
   },
-  "converged": true,
-  "convergence_tick": 595
+  "converged": false,
+  "convergence_tick": null
 }
