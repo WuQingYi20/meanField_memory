@@ -53,6 +53,8 @@ class ExperimentConfig:
     random_seed: Optional[int] = None
     convergence_threshold: float = 0.95
     convergence_window: int = 50
+    # Optional initial condition override
+    initial_strategy_0_fraction: Optional[float] = None
     # V5: Normative memory settings
     enable_normative: bool = False
     observation_k: int = 0
@@ -84,6 +86,9 @@ class ExperimentResult:
     final_norm_level: int = 0
     final_norm_adoption_rate: float = 0.0
     final_mean_norm_strength: float = 0.0
+    # Norm emergence timing
+    first_norm_tick: Optional[int] = None
+    normative_level_tick: Optional[int] = None
 
 
 def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
@@ -136,11 +141,31 @@ def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
         enforce_threshold=config.enforce_threshold,
         compliance_exponent=config.compliance_exponent,
         signal_amplification=config.signal_amplification,
+        collect_history=False,
     )
+
+    # Optional initial condition override: set exact strategy-0 fraction at tick 0.
+    if config.initial_strategy_0_fraction is not None:
+        if not 0.0 <= config.initial_strategy_0_fraction <= 1.0:
+            raise ValueError("initial_strategy_0_fraction must be in [0, 1]")
+
+        n = env.num_agents
+        n_strategy_0 = int(round(config.initial_strategy_0_fraction * n))
+        rng = np.random.RandomState(config.random_seed)
+        perm = np.arange(n)
+        rng.shuffle(perm)
+        strategy_0_ids = set(perm[:n_strategy_0].tolist())
+
+        for agent in env.agents:
+            initial_strategy = 0 if agent.id in strategy_0_ids else 1
+            agent.reset(initial_strategy=initial_strategy)
 
     result = env.run(max_ticks=config.max_ticks, early_stop=True, verbose=False)
 
     run_time = time.time() - start_time
+
+    first_norm_tick = result.final_state.get("first_norm_tick")
+    normative_level_tick = result.final_state.get("normative_level_tick")
 
     return ExperimentResult(
         config=config,
@@ -156,7 +181,20 @@ def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
         final_norm_level=result.final_state.get("final_norm_level", 0),
         final_norm_adoption_rate=result.final_state.get("final_norm_adoption_rate", 0.0),
         final_mean_norm_strength=result.final_state.get("final_mean_norm_strength", 0.0),
+        first_norm_tick=first_norm_tick,
+        normative_level_tick=normative_level_tick,
     )
+
+
+def run_experiment_batch(configs: List[ExperimentConfig]) -> List[ExperimentResult]:
+    """Run a batch of experiments in a single worker process."""
+    batch_results: List[ExperimentResult] = []
+    for config in configs:
+        try:
+            batch_results.append(run_single_experiment(config))
+        except Exception as e:
+            print(f"Error in experiment {config.name}: {e}")
+    return batch_results
 
 
 class ExperimentRunner:
@@ -174,6 +212,7 @@ class ExperimentRunner:
         self,
         output_dir: str = "data/experiments",
         n_workers: int = 4,
+        batch_size: int = 8,
     ):
         """
         Initialize experiment runner.
@@ -181,10 +220,12 @@ class ExperimentRunner:
         Args:
             output_dir: Directory for output files
             n_workers: Number of parallel workers
+            batch_size: Number of experiment configs per submitted process task
         """
         self._output_dir = Path(output_dir)
         self._output_dir.mkdir(parents=True, exist_ok=True)
         self._n_workers = n_workers
+        self._batch_size = max(1, batch_size)
         self._results: List[ExperimentResult] = []
 
     def run_experiments(
@@ -207,23 +248,32 @@ class ExperimentRunner:
         results = []
 
         if parallel and self._n_workers > 1:
+            config_batches = [
+                configs[i:i + self._batch_size]
+                for i in range(0, len(configs), self._batch_size)
+            ]
             with ProcessPoolExecutor(max_workers=self._n_workers) as executor:
                 futures = {
-                    executor.submit(run_single_experiment, config): config
-                    for config in configs
+                    executor.submit(run_experiment_batch, batch): batch
+                    for batch in config_batches
                 }
 
                 iterator = as_completed(futures)
-                if progress:
-                    iterator = tqdm(iterator, total=len(configs), desc="Running experiments")
+                pbar = tqdm(total=len(configs), desc="Running experiments") if progress else None
 
                 for future in iterator:
                     try:
-                        result = future.result()
-                        results.append(result)
+                        batch_results = future.result()
+                        results.extend(batch_results)
+                        if pbar is not None:
+                            pbar.update(len(batch_results))
                     except Exception as e:
-                        config = futures[future]
-                        print(f"Error in experiment {config.name}: {e}")
+                        batch = futures[future]
+                        names = ", ".join(c.name for c in batch[:3])
+                        suffix = "..." if len(batch) > 3 else ""
+                        print(f"Error in experiment batch ({names}{suffix}): {e}")
+                if pbar is not None:
+                    pbar.close()
         else:
             iterator = configs
             if progress:
@@ -257,7 +307,9 @@ class ExperimentRunner:
                 "initial_trust": result.config.initial_trust,
                 "alpha": result.config.alpha,
                 "beta": result.config.beta,
+                "observation_k": result.config.observation_k,
                 "enable_normative": result.config.enable_normative,
+                "initial_strategy_0_fraction": result.config.initial_strategy_0_fraction,
                 "random_seed": result.config.random_seed,
                 "converged": result.converged,
                 "convergence_tick": result.convergence_tick,
@@ -269,6 +321,8 @@ class ExperimentRunner:
                 "final_norm_level": result.final_norm_level,
                 "final_norm_adoption_rate": result.final_norm_adoption_rate,
                 "final_mean_norm_strength": result.final_mean_norm_strength,
+                "first_norm_tick": result.first_norm_tick,
+                "normative_level_tick": result.normative_level_tick,
                 "run_time_seconds": result.run_time_seconds,
             }
             rows.append(row)
@@ -308,6 +362,8 @@ class ExperimentRunner:
                 "final_norm_level": result.final_norm_level,
                 "final_norm_adoption_rate": result.final_norm_adoption_rate,
                 "final_mean_norm_strength": result.final_mean_norm_strength,
+                "first_norm_tick": result.first_norm_tick,
+                "normative_level_tick": result.normative_level_tick,
                 "run_time_seconds": result.run_time_seconds,
             }
             json_data.append(item)
@@ -751,6 +807,180 @@ def run_v5_factorial(
     return df
 
 
+def run_cognitive_lockin_scan(
+    num_agents: int = 100,
+    max_ticks: int = 10000,
+    n_trials: int = 3,
+    output_dir: str = "data/experiments",
+    n_workers: int = 4,
+    initial_fractions: Optional[List[float]] = None,
+    alpha_beta_pairs: Optional[List[Tuple[float, float]]] = None,
+    observation_k_values: Optional[List[int]] = None,
+    crystal_threshold_values: Optional[List[float]] = None,
+    memory_types: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """
+    Comprehensive scan for cognitive_lockin mode with normative memory enabled.
+
+    Scans initial strategy ratio and key cognitive/normative parameters, and
+    records norm emergence timing:
+    - first_norm_tick: first tick with norm_adoption_rate > 0
+    - normative_level_tick: first tick reaching norm level >= 4
+    """
+    initial_fractions = initial_fractions or [0.5, 0.6, 0.7, 0.8]
+    alpha_beta_pairs = alpha_beta_pairs or [(0.1, 0.3), (0.2, 0.2), (0.05, 0.3)]
+    observation_k_values = observation_k_values or [1, 3, 5]
+    crystal_threshold_values = crystal_threshold_values or [2.0, 3.0]
+    memory_types = memory_types or ["dynamic"]
+
+    configs: List[ExperimentConfig] = []
+    for memory_type, frac, (alpha, beta), obs_k, crystal in product(
+        memory_types,
+        initial_fractions,
+        alpha_beta_pairs,
+        observation_k_values,
+        crystal_threshold_values,
+    ):
+        for trial in range(n_trials):
+            seed = (
+                trial * 10000
+                + int(round(frac * 1000))
+                + int(round(alpha * 1000))
+                + int(round(beta * 1000))
+                + obs_k * 17
+                + int(round(crystal * 100))
+            )
+            name = (
+                f"cogscan_{memory_type}_f{frac:.2f}"
+                f"_a{alpha:.2f}_b{beta:.2f}_k{obs_k}_c{crystal:.1f}_t{trial}"
+            )
+            configs.append(
+                ExperimentConfig(
+                    name=name,
+                    num_agents=num_agents,
+                    memory_type=memory_type,
+                    decision_mode="cognitive_lockin",
+                    initial_trust=0.5,
+                    alpha=alpha,
+                    beta=beta,
+                    enable_normative=True,
+                    observation_k=obs_k,
+                    crystal_threshold=crystal,
+                    max_ticks=max_ticks,
+                    initial_strategy_0_fraction=frac,
+                    random_seed=seed,
+                )
+            )
+
+    runner = ExperimentRunner(output_dir=output_dir, n_workers=n_workers)
+    runner.run_experiments(configs)
+
+    df = runner.get_results_dataframe()
+    runner.save_results("cognitive_lockin_scan")
+
+    print("\n=== Cognitive-Lockin Scan Summary ===")
+    summary = df.groupby(["memory_type", "initial_strategy_0_fraction"]).agg({
+        "converged": "mean",
+        "convergence_tick": "mean",
+        "first_norm_tick": "mean",
+        "normative_level_tick": "mean",
+        "final_norm_adoption_rate": "mean",
+        "final_majority_fraction": "mean",
+    }).round(3)
+    print(summary)
+
+    return df
+
+
+def run_cognitive_lockin_pure_scan(
+    num_agents: int = 100,
+    max_ticks: int = 10000,
+    n_trials: int = 5,
+    output_dir: str = "data/experiments",
+    n_workers: int = 4,
+    initial_fractions: Optional[List[float]] = None,
+    alpha_beta_pairs: Optional[List[Tuple[float, float]]] = None,
+    initial_trust_values: Optional[List[float]] = None,
+    memory_types: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """
+    Comprehensive pure cognitive-lockin scan (normative mechanism OFF).
+
+    Focuses on:
+    - initial strategy ratio effects
+    - trust dynamics parameters (alpha, beta, initial_trust)
+    - memory mechanism effects under the same decision mode
+    """
+    initial_fractions = initial_fractions or [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80]
+    alpha_beta_pairs = alpha_beta_pairs or [
+        (0.05, 0.20),
+        (0.10, 0.30),
+        (0.20, 0.20),
+        (0.05, 0.40),
+    ]
+    initial_trust_values = initial_trust_values or [0.30, 0.50]
+    memory_types = memory_types or ["fixed", "dynamic", "decay"]
+
+    configs: List[ExperimentConfig] = []
+    for memory_type, frac, (alpha, beta), initial_trust in product(
+        memory_types,
+        initial_fractions,
+        alpha_beta_pairs,
+        initial_trust_values,
+    ):
+        for trial in range(n_trials):
+            seed = (
+                trial * 100000
+                + int(round(frac * 1000)) * 11
+                + int(round(alpha * 1000)) * 13
+                + int(round(beta * 1000)) * 17
+                + int(round(initial_trust * 1000)) * 19
+                + {"fixed": 1, "dynamic": 2, "decay": 3}[memory_type]
+            )
+            name = (
+                f"purecog_{memory_type}_f{frac:.2f}"
+                f"_a{alpha:.2f}_b{beta:.2f}_t0{initial_trust:.2f}_trial{trial}"
+            )
+            configs.append(
+                ExperimentConfig(
+                    name=name,
+                    num_agents=num_agents,
+                    memory_type=memory_type,
+                    memory_size=5,
+                    decay_rate=0.9,
+                    dynamic_base=2,
+                    dynamic_max=6,
+                    decision_mode="cognitive_lockin",
+                    initial_trust=initial_trust,
+                    alpha=alpha,
+                    beta=beta,
+                    enable_normative=False,
+                    observation_k=0,
+                    max_ticks=max_ticks,
+                    initial_strategy_0_fraction=frac,
+                    random_seed=seed,
+                )
+            )
+
+    runner = ExperimentRunner(output_dir=output_dir, n_workers=n_workers)
+    runner.run_experiments(configs)
+
+    df = runner.get_results_dataframe()
+    runner.save_results("cognitive_lockin_pure_scan_full")
+
+    print("\n=== Pure Cognitive-Lockin Full Scan Summary ===")
+    summary = df.groupby(["memory_type", "initial_strategy_0_fraction"]).agg({
+        "converged": "mean",
+        "convergence_tick": "mean",
+        "final_majority_fraction": "mean",
+        "final_mean_trust": "mean",
+        "run_time_seconds": "mean",
+    }).round(3)
+    print(summary)
+
+    return df
+
+
 if __name__ == "__main__":
     import sys
 
@@ -760,6 +990,12 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "--v5":
         print("Running V5 factorial experiment...")
         df = run_v5_factorial(num_agents=50, n_trials=5, n_workers=2)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--cogscan":
+        print("Running cognitive-lockin comprehensive scan...")
+        df = run_cognitive_lockin_scan(num_agents=100, max_ticks=10000, n_trials=2, n_workers=4)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--pure-scan":
+        print("Running pure cognitive-lockin full scan...")
+        df = run_cognitive_lockin_pure_scan(num_agents=100, max_ticks=10000, n_trials=5, n_workers=4)
     else:
         print("Running decision mode comparison experiment...")
         df = run_decision_mode_comparison(num_agents=50, n_trials=5, n_workers=2)

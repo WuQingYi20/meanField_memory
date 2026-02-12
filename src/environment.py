@@ -119,6 +119,8 @@ class SimulationEnvironment:
         enforce_threshold: float = 0.7,
         compliance_exponent: float = 2.0,
         signal_amplification: float = 2.0,
+        # Performance setting
+        collect_history: bool = True,
     ):
         """
         Initialize simulation environment.
@@ -156,6 +158,7 @@ class SimulationEnvironment:
             enforce_threshold: Min sigma for enforcement
             compliance_exponent: Exponent k in sigma^k
             signal_amplification: DDM drift multiplier gamma_signal
+            collect_history: Whether to store per-tick history in memory
         """
         # Ensure even number of agents for pairing
         if num_agents % 2 != 0:
@@ -171,6 +174,7 @@ class SimulationEnvironment:
         if isinstance(decision_mode, str):
             decision_mode = DecisionMode(decision_mode)
         self._decision_mode = decision_mode
+        self._collect_history = collect_history
 
         # Observation settings
         self._observation_k = observation_k
@@ -262,8 +266,12 @@ class SimulationEnvironment:
         # Simulation state
         self._current_tick = 0
         self._tick_history: List[TickMetrics] = []
+        self._last_metrics: Optional[TickMetrics] = None
         self._convergence_tick: Optional[int] = None
         self._convergence_counter = 0
+        # Key event timing (kept even when history collection is off)
+        self._first_norm_tick: Optional[int] = None
+        self._normative_level_tick: Optional[int] = None
 
         # Norm detection (Bicchieri 2006)
         self._norm_detector = NormDetector(
@@ -368,7 +376,8 @@ class SimulationEnvironment:
     def _collect_observed_strategies(
         self,
         agent: Agent,
-        interactions: List[Tuple[int, int, int, int]],
+        interactions: Optional[List[Tuple[int, int, int, int]]] = None,
+        partner_strategy_by_agent: Optional[Dict[int, int]] = None,
     ) -> List[int]:
         """
         Collect all strategies observed by an agent this tick.
@@ -378,19 +387,26 @@ class SimulationEnvironment:
 
         Args:
             agent: The agent
-            interactions: All interactions this tick
+            interactions: All interactions this tick (fallback path)
+            partner_strategy_by_agent: Direct mapping {agent_id: partner_strategy}
 
         Returns:
             List of observed strategies
         """
         observed = []
 
-        # Partner's strategy from direct interaction
-        for id1, id2, s1, s2 in interactions:
-            if id1 == agent.id:
-                observed.append(s2)
-            elif id2 == agent.id:
-                observed.append(s1)
+        # Fast path: direct partner strategy lookup built during step().
+        if partner_strategy_by_agent is not None:
+            partner_strategy = partner_strategy_by_agent.get(agent.id)
+            if partner_strategy is not None:
+                observed.append(partner_strategy)
+        elif interactions is not None:
+            # Fallback path for backward compatibility.
+            for id1, id2, s1, s2 in interactions:
+                if id1 == agent.id:
+                    observed.append(s2)
+                elif id2 == agent.id:
+                    observed.append(s1)
 
         # Observed strategies (from observation_k, stored in agent._observations)
         for strategy, weight in agent._observations:
@@ -401,6 +417,7 @@ class SimulationEnvironment:
     def _process_normative_step(
         self,
         interactions: List[Tuple[int, int, int, int]],
+        partner_strategy_by_agent: Optional[Dict[int, int]] = None,
     ) -> Tuple[int, int, int]:
         """
         Process normative memory updates for all agents.
@@ -420,15 +437,20 @@ class SimulationEnvironment:
         total_enforcements = 0
 
         # Step 1: Collect observed strategies and process normative observations
-        enforcement_signals: List[int] = []  # strategies to broadcast
+        # We only need to know if there is at least one enforcement signal this tick.
+        any_enforcement_signal: Optional[int] = None
 
         for agent in self._agents:
-            observed = self._collect_observed_strategies(agent, interactions)
+            observed = self._collect_observed_strategies(
+                agent,
+                interactions=interactions,
+                partner_strategy_by_agent=partner_strategy_by_agent,
+            )
 
             # Check for enforcement signals BEFORE processing (agent state still pristine)
             signal = agent.get_enforcement_signal(observed)
             if signal is not None:
-                enforcement_signals.append(signal)
+                any_enforcement_signal = signal
                 total_enforcements += 1
 
             # Process observations through normative memory
@@ -439,10 +461,12 @@ class SimulationEnvironment:
             if dissolved:
                 total_dissolutions += 1
 
-        # Step 2: Broadcast enforcement signals to all agents
-        for signal_strategy in enforcement_signals:
+        # Step 2: Broadcast enforcement signal once per tick.
+        # Equivalent semantics: receive_signal() sets a one-shot multiplier, so
+        # repeated signals in the same tick do not accumulate additional effect.
+        if any_enforcement_signal is not None:
             for agent in self._agents:
-                agent.receive_normative_signal(signal_strategy)
+                agent.receive_normative_signal(any_enforcement_signal)
 
         return total_crystallisations, total_dissolutions, total_enforcements
 
@@ -479,6 +503,8 @@ class SimulationEnvironment:
 
         # Store all interactions for observation
         tick_interactions_list: List[Tuple[int, int, int, int]] = []
+        # Fast lookup of each agent's direct partner strategy in this tick.
+        partner_strategy_by_agent: Dict[int, int] = {}
 
         # Execute all interactions
         for idx1, idx2 in pairs:
@@ -490,6 +516,8 @@ class SimulationEnvironment:
 
             # Store for observation
             tick_interactions_list.append((idx1, idx2, outcome.strategy1, outcome.strategy2))
+            partner_strategy_by_agent[idx1] = outcome.strategy2
+            partner_strategy_by_agent[idx2] = outcome.strategy1
 
             # Update both agents (anonymous: only observe partner's strategy)
             agent1.update(
@@ -521,7 +549,10 @@ class SimulationEnvironment:
         tick_enforcements = 0
         if self._enable_normative:
             tick_crystallisations, tick_dissolutions, tick_enforcements = \
-                self._process_normative_step(tick_interactions_list)
+                self._process_normative_step(
+                    tick_interactions_list,
+                    partner_strategy_by_agent=partner_strategy_by_agent,
+                )
 
         # Count strategy switches
         for agent in self._agents:
@@ -538,7 +569,15 @@ class SimulationEnvironment:
             tick_enforcements=tick_enforcements,
         )
 
-        self._tick_history.append(metrics)
+        self._last_metrics = metrics
+        if self._collect_history:
+            self._tick_history.append(metrics)
+
+        if self._first_norm_tick is None and metrics.norm_adoption_rate > 0:
+            self._first_norm_tick = self._current_tick
+        if self._normative_level_tick is None and metrics.norm_level >= NormLevel.NORMATIVE.value:
+            self._normative_level_tick = self._current_tick
+
         self._current_tick += 1
 
         # Check convergence
@@ -729,7 +768,7 @@ class SimulationEnvironment:
     def _compile_results(self) -> SimulationResult:
         """Compile simulation results."""
         # Final state
-        final_metrics = self._tick_history[-1] if self._tick_history else None
+        final_metrics = self._last_metrics
 
         final_state = {
             "final_tick": self._current_tick,
@@ -751,6 +790,8 @@ class SimulationEnvironment:
                 "final_norm_adoption_rate": final_metrics.norm_adoption_rate,
                 "final_mean_norm_strength": final_metrics.mean_norm_strength,
                 "final_mean_compliance": final_metrics.mean_compliance,
+                "first_norm_tick": self._first_norm_tick,
+                "normative_level_tick": self._normative_level_tick,
             })
 
         # Agent final states
@@ -863,8 +904,11 @@ class SimulationEnvironment:
 
         self._current_tick = 0
         self._tick_history = []
+        self._last_metrics = None
         self._convergence_tick = None
         self._convergence_counter = 0
+        self._first_norm_tick = None
+        self._normative_level_tick = None
         self._norm_detector.reset()
         self._last_interactions = []
 
