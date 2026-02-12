@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 
 
@@ -17,17 +17,7 @@ def plot_strategy_evolution(
     ax: Optional[plt.Axes] = None,
     title: str = "Strategy Distribution Over Time",
 ) -> plt.Axes:
-    """
-    Plot strategy distribution evolution over time.
-
-    Args:
-        df: DataFrame with tick history (from SimulationEnvironment.get_history_dataframe())
-        ax: Matplotlib axes (creates new if None)
-        title: Plot title
-
-    Returns:
-        Matplotlib axes
-    """
+    """Plot strategy distribution evolution over time."""
     if ax is None:
         _, ax = plt.subplots(figsize=(10, 6))
 
@@ -49,14 +39,12 @@ def plot_strategy_evolution(
     )
 
     ax.axhline(y=0.5, color="gray", linestyle="--", alpha=0.5)
-
     ax.set_xlabel("Tick")
     ax.set_ylabel("Fraction of Population")
     ax.set_title(title)
     ax.set_ylim(0, 1)
     ax.legend(loc="upper right")
     ax.grid(True, alpha=0.3)
-
     return ax
 
 
@@ -65,28 +53,26 @@ def plot_tau_evolution(
     ax: Optional[plt.Axes] = None,
     title: str = "Temperature Evolution",
 ) -> plt.Axes:
-    """
-    Plot mean temperature (tau) over time.
-
-    Args:
-        df: DataFrame with tick history
-        ax: Matplotlib axes
-        title: Plot title
-
-    Returns:
-        Matplotlib axes
-    """
+    """Plot mean temperature (tau) over time, with trust fallback."""
     if ax is None:
         _, ax = plt.subplots(figsize=(10, 6))
 
-    ax.plot(df["tick"], df["mean_tau"], color="green", linewidth=2)
-    ax.fill_between(df["tick"], df["mean_tau"], alpha=0.3, color="green")
+    if "mean_tau" in df.columns:
+        series = df["mean_tau"]
+        ylabel = "Mean Temperature (tau)"
+        line_color = "green"
+    else:
+        # Fallback for trust-based decision modes without tau.
+        series = df["mean_trust"]
+        ylabel = "Mean Trust"
+        line_color = "purple"
 
+    ax.plot(df["tick"], series, color=line_color, linewidth=2)
+    ax.fill_between(df["tick"], series, alpha=0.3, color=line_color)
     ax.set_xlabel("Tick")
-    ax.set_ylabel("Mean Temperature (τ)")
+    ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.grid(True, alpha=0.3)
-
     return ax
 
 
@@ -96,23 +82,17 @@ def plot_trust_distribution(
     title: str = "Trust Level Distribution",
     bins: int = 20,
 ) -> plt.Axes:
-    """
-    Plot histogram of trust levels.
-
-    Args:
-        trust_values: List of trust values from agents
-        ax: Matplotlib axes
-        title: Plot title
-        bins: Number of histogram bins
-
-    Returns:
-        Matplotlib axes
-    """
+    """Plot histogram of trust levels."""
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 6))
 
     ax.hist(trust_values, bins=bins, edgecolor="black", alpha=0.7, color="purple")
-    ax.axvline(x=np.mean(trust_values), color="red", linestyle="--", label=f"Mean: {np.mean(trust_values):.2f}")
+    ax.axvline(
+        x=np.mean(trust_values),
+        color="red",
+        linestyle="--",
+        label=f"Mean: {np.mean(trust_values):.2f}",
+    )
 
     ax.set_xlabel("Trust Level")
     ax.set_ylabel("Count")
@@ -120,7 +100,6 @@ def plot_trust_distribution(
     ax.set_xlim(0, 1)
     ax.legend()
     ax.grid(True, alpha=0.3)
-
     return ax
 
 
@@ -130,37 +109,21 @@ def plot_coordination_rate(
     title: str = "Coordination Success Rate",
     window: int = 10,
 ) -> plt.Axes:
-    """
-    Plot coordination rate with rolling average.
-
-    Args:
-        df: DataFrame with tick history
-        ax: Matplotlib axes
-        title: Plot title
-        window: Rolling average window size
-
-    Returns:
-        Matplotlib axes
-    """
+    """Plot coordination rate with rolling average."""
     if ax is None:
         _, ax = plt.subplots(figsize=(10, 6))
 
-    # Raw values (faded)
     ax.plot(df["tick"], df["coordination_rate"], alpha=0.3, color="orange", linewidth=1)
-
-    # Rolling average
     rolling_avg = df["coordination_rate"].rolling(window=window, min_periods=1).mean()
     ax.plot(df["tick"], rolling_avg, color="orange", linewidth=2, label=f"Rolling avg (w={window})")
 
     ax.axhline(y=0.5, color="gray", linestyle="--", alpha=0.5, label="Random baseline")
-
     ax.set_xlabel("Tick")
     ax.set_ylabel("Coordination Rate")
     ax.set_title(title)
     ax.set_ylim(0, 1)
     ax.legend()
     ax.grid(True, alpha=0.3)
-
     return ax
 
 
@@ -169,17 +132,7 @@ def plot_memory_window_distribution(
     ax: Optional[plt.Axes] = None,
     title: str = "Memory Window Size Distribution",
 ) -> plt.Axes:
-    """
-    Plot distribution of dynamic memory window sizes.
-
-    Args:
-        window_sizes: List of window sizes from agents
-        ax: Matplotlib axes
-        title: Plot title
-
-    Returns:
-        Matplotlib axes
-    """
+    """Plot distribution of dynamic memory window sizes."""
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 6))
 
@@ -187,13 +140,11 @@ def plot_memory_window_distribution(
     counts = [window_sizes.count(s) for s in unique_sizes]
 
     ax.bar(unique_sizes, counts, edgecolor="black", alpha=0.7, color="teal")
-
     ax.set_xlabel("Window Size")
     ax.set_ylabel("Count")
     ax.set_title(title)
     ax.set_xticks(unique_sizes)
     ax.grid(True, alpha=0.3, axis="y")
-
     return ax
 
 
@@ -203,18 +154,7 @@ def plot_convergence_comparison(
     ax: Optional[plt.Axes] = None,
     title: str = "Convergence Time Comparison",
 ) -> plt.Axes:
-    """
-    Compare convergence times across different configurations.
-
-    Args:
-        results_list: List of result dicts from multiple simulations
-        labels: Labels for each configuration
-        ax: Matplotlib axes
-        title: Plot title
-
-    Returns:
-        Matplotlib axes
-    """
+    """Compare convergence times across different configurations."""
     if ax is None:
         _, ax = plt.subplots(figsize=(10, 6))
 
@@ -229,10 +169,8 @@ def plot_convergence_comparison(
             convergence_times.append(result.get("final_tick", 1000))
 
     colors = plt.cm.viridis(np.linspace(0, 0.8, len(labels)))
-
     bars = ax.bar(labels, convergence_times, color=colors, edgecolor="black")
 
-    # Mark non-converged
     for i, result in enumerate(results_list):
         if result.get("convergence_tick") is None:
             bars[i].set_hatch("//")
@@ -243,7 +181,6 @@ def plot_convergence_comparison(
     ax.set_title(title)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Rotate labels if many
     if len(labels) > 5:
         plt.xticks(rotation=45, ha="right")
 
@@ -256,44 +193,34 @@ def create_summary_figure(
     title: str = "Simulation Summary",
     figsize: tuple = (16, 12),
 ) -> Figure:
-    """
-    Create a comprehensive summary figure with multiple subplots.
-
-    Args:
-        df: DataFrame with tick history
-        agent_states: List of agent final states (optional)
-        title: Overall figure title
-        figsize: Figure size
-
-    Returns:
-        Matplotlib Figure
-    """
+    """Create a comprehensive summary figure with multiple subplots."""
     fig, axes = plt.subplots(2, 3, figsize=figsize)
     fig.suptitle(title, fontsize=16, fontweight="bold")
 
-    # Strategy evolution
     plot_strategy_evolution(df, ax=axes[0, 0])
-
-    # Tau evolution
     plot_tau_evolution(df, ax=axes[0, 1])
-
-    # Coordination rate
     plot_coordination_rate(df, ax=axes[0, 2])
 
-    # Trust and tau together
+    # Trust and tau together (or trust-only for non-tau modes)
     ax = axes[1, 0]
-    ax.plot(df["tick"], df["mean_tau"], color="green", label="Mean τ", linewidth=2)
-    ax.set_xlabel("Tick")
-    ax.set_ylabel("Mean τ", color="green")
-    ax2 = ax.twinx()
-    ax2.plot(df["tick"], df["mean_trust"], color="purple", linestyle="--", label="Mean Trust", linewidth=2)
-    ax2.set_ylabel("Mean Trust", color="purple")
-    ax.set_title("Temperature vs Trust")
-    ax.legend(loc="upper left")
-    ax2.legend(loc="upper right")
+    if "mean_tau" in df.columns:
+        ax.plot(df["tick"], df["mean_tau"], color="green", label="Mean tau", linewidth=2)
+        ax.set_xlabel("Tick")
+        ax.set_ylabel("Mean tau", color="green")
+        ax2 = ax.twinx()
+        ax2.plot(df["tick"], df["mean_trust"], color="purple", linestyle="--", label="Mean Trust", linewidth=2)
+        ax2.set_ylabel("Mean Trust", color="purple")
+        ax.set_title("Temperature vs Trust")
+        ax.legend(loc="upper left")
+        ax2.legend(loc="upper right")
+    else:
+        ax.plot(df["tick"], df["mean_trust"], color="purple", label="Mean Trust", linewidth=2)
+        ax.set_xlabel("Tick")
+        ax.set_ylabel("Mean Trust")
+        ax.set_title("Trust Evolution")
+        ax.legend(loc="upper right")
     ax.grid(True, alpha=0.3)
 
-    # Memory window evolution
     ax = axes[1, 1]
     ax.plot(df["tick"], df["mean_memory_window"], color="teal", linewidth=2)
     ax.set_xlabel("Tick")
@@ -301,7 +228,6 @@ def create_summary_figure(
     ax.set_title("Memory Window Evolution")
     ax.grid(True, alpha=0.3)
 
-    # Strategy switches
     ax = axes[1, 2]
     ax.plot(df["tick"], df["strategy_switches"], color="crimson", linewidth=1, alpha=0.7)
     rolling = df["strategy_switches"].rolling(window=20, min_periods=1).mean()
@@ -321,22 +247,9 @@ def plot_phase_diagram(
     ax: Optional[plt.Axes] = None,
     title: str = "Phase Diagram",
 ) -> plt.Axes:
-    """
-    Plot phase diagram of strategy fraction vs trust.
-
-    Args:
-        df: DataFrame with tick history
-        ax: Matplotlib axes
-        title: Plot title
-
-    Returns:
-        Matplotlib axes
-    """
+    """Plot phase diagram of strategy fraction vs trust."""
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 8))
-
-    # Color by time
-    colors = plt.cm.viridis(np.linspace(0, 1, len(df)))
 
     scatter = ax.scatter(
         df["strategy_0_fraction"],
@@ -347,7 +260,6 @@ def plot_phase_diagram(
         s=10,
     )
 
-    # Add trajectory line
     ax.plot(
         df["strategy_0_fraction"],
         df["mean_trust"],
@@ -356,7 +268,6 @@ def plot_phase_diagram(
         linewidth=0.5,
     )
 
-    # Mark start and end
     ax.scatter(
         [df["strategy_0_fraction"].iloc[0]],
         [df["mean_trust"].iloc[0]],
@@ -385,7 +296,6 @@ def plot_phase_diagram(
     ax.set_ylim(0, 1)
     ax.legend()
     ax.grid(True, alpha=0.3)
-
     return ax
 
 
@@ -396,19 +306,7 @@ def save_figure(
     formats: List[str] = ["png", "pdf"],
     dpi: int = 150,
 ) -> List[str]:
-    """
-    Save figure in multiple formats.
-
-    Args:
-        fig: Matplotlib figure
-        filename: Base filename (without extension)
-        output_dir: Output directory
-        formats: List of formats to save
-        dpi: Resolution for raster formats
-
-    Returns:
-        List of saved file paths
-    """
+    """Save figure in multiple formats."""
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
