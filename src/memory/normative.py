@@ -28,6 +28,7 @@ class NormativeState:
     has_norm: bool             # whether a norm has crystallised
     compliance: float          # sigma^k: current compliance level
     enforcement_count: int     # total enforcement signals sent
+    first_crystallisation_tick: Optional[int] = None  # first tick when norm formed
 
 
 class NormativeMemory:
@@ -92,6 +93,7 @@ class NormativeMemory:
 
         # Statistics
         self._enforcement_count: int = 0
+        self._first_crystallisation_tick: Optional[int] = None
 
     # =========================================================================
     # Properties
@@ -130,6 +132,7 @@ class NormativeMemory:
         confidence: float,
         consistency: float,
         dominant_strategy: int,
+        tick: Optional[int] = None,
     ) -> bool:
         """
         Update DDM evidence accumulator. Only active when no norm exists.
@@ -165,6 +168,8 @@ class NormativeMemory:
             self._norm = dominant_strategy
             self._strength = self._initial_strength
             self._anomaly_count = 0
+            if self._first_crystallisation_tick is None:
+                self._first_crystallisation_tick = tick
             return True
 
         return False
@@ -319,6 +324,7 @@ class NormativeMemory:
             has_norm=self._norm is not None,
             compliance=self.get_compliance(),
             enforcement_count=self._enforcement_count,
+            first_crystallisation_tick=self._first_crystallisation_tick,
         )
 
     def reset(self) -> None:
@@ -329,3 +335,4 @@ class NormativeMemory:
         self._evidence = 0.0
         self._signal_boost = 1.0
         self._enforcement_count = 0
+        self._first_crystallisation_tick = None

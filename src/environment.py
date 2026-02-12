@@ -76,6 +76,14 @@ class SimulationEnvironment:
     - Convergence detection
     - V5: Normative memory processing and enforcement
     """
+    TICK_UPDATE_ORDER = (
+        "pair_and_action",
+        "observe_and_memory_update",
+        "confidence_update",
+        "normative_ddm_or_anomaly",
+        "enforcement_signal_broadcast",
+        "metrics_and_convergence",
+    )
 
     def __init__(
         self,
@@ -119,6 +127,10 @@ class SimulationEnvironment:
         enforce_threshold: float = 0.7,
         compliance_exponent: float = 2.0,
         signal_amplification: float = 2.0,
+        # Shock injection (robustness experiments)
+        shock_tick: Optional[int] = None,
+        shock_violator_fraction: float = 0.0,
+        shock_violate_strategy: Optional[int] = None,
         # Performance setting
         collect_history: bool = True,
     ):
@@ -158,6 +170,9 @@ class SimulationEnvironment:
             enforce_threshold: Min sigma for enforcement
             compliance_exponent: Exponent k in sigma^k
             signal_amplification: DDM drift multiplier gamma_signal
+            shock_tick: Tick T at which persistent violators are injected
+            shock_violator_fraction: Injected violator ratio epsilon in [0, 1]
+            shock_violate_strategy: Forced strategy of violators (None=opposite majority at T)
             collect_history: Whether to store per-tick history in memory
         """
         # Ensure even number of agents for pairing
@@ -169,6 +184,11 @@ class SimulationEnvironment:
         self._convergence_threshold = convergence_threshold
         self._convergence_window = convergence_window
         self._enable_normative = enable_normative
+        self._shock_tick = shock_tick
+        self._shock_violator_fraction = max(0.0, min(1.0, shock_violator_fraction))
+        self._shock_violate_strategy = shock_violate_strategy
+        self._shock_active = False
+        self._persistent_violator_strategy_by_id: Dict[int, int] = {}
 
         # Convert string to enum if needed
         if isinstance(decision_mode, str):
@@ -219,6 +239,9 @@ class SimulationEnvironment:
             "enforce_threshold": enforce_threshold,
             "compliance_exponent": compliance_exponent,
             "signal_amplification": signal_amplification,
+            "shock_tick": shock_tick,
+            "shock_violator_fraction": shock_violator_fraction,
+            "shock_violate_strategy": shock_violate_strategy,
         }
 
         # Set random seed
@@ -334,11 +357,46 @@ class SimulationEnvironment:
         # Both agents choose actions and make predictions
         action1, pred1 = agent1.choose_action()
         action2, pred2 = agent2.choose_action()
+        action1 = self._persistent_violator_strategy_by_id.get(agent1.id, action1)
+        action2 = self._persistent_violator_strategy_by_id.get(agent2.id, action2)
 
         # Play the game
         outcome = self._game.play(action1, action2)
 
         return outcome, pred1, pred2
+
+    def get_tick_update_order(self) -> List[str]:
+        """Return the canonical per-tick update sequence."""
+        return list(self.TICK_UPDATE_ORDER)
+
+    def _activate_shock_if_needed(self) -> None:
+        """Activate persistent violators at the configured shock tick."""
+        if self._shock_active:
+            return
+        if self._shock_tick is None or self._current_tick != self._shock_tick:
+            return
+        if self._shock_violator_fraction <= 0.0:
+            self._shock_active = True
+            return
+
+        n_violators = int(round(self._num_agents * self._shock_violator_fraction))
+        if n_violators <= 0:
+            self._shock_active = True
+            return
+
+        agent_ids = np.arange(self._num_agents)
+        chosen_ids = np.random.choice(agent_ids, size=n_violators, replace=False)
+
+        if self._shock_violate_strategy in (0, 1):
+            forced_strategy = int(self._shock_violate_strategy)
+        else:
+            majority_strategy = self._last_metrics.majority_strategy if self._last_metrics is not None else 0
+            forced_strategy = 1 - majority_strategy
+
+        self._persistent_violator_strategy_by_id = {
+            int(agent_id): forced_strategy for agent_id in chosen_ids
+        }
+        self._shock_active = True
 
     def _distribute_observations(
         self,
@@ -418,6 +476,7 @@ class SimulationEnvironment:
         self,
         interactions: List[Tuple[int, int, int, int]],
         partner_strategy_by_agent: Optional[Dict[int, int]] = None,
+        tick: Optional[int] = None,
     ) -> Tuple[int, int, int]:
         """
         Process normative memory updates for all agents.
@@ -454,7 +513,10 @@ class SimulationEnvironment:
                 total_enforcements += 1
 
             # Process observations through normative memory
-            crystallised, dissolved, enforcements = agent.process_normative_observations(observed)
+            crystallised, dissolved, _ = agent.process_normative_observations(
+                observed,
+                tick=tick,
+            )
 
             if crystallised:
                 total_crystallisations += 1
@@ -474,23 +536,24 @@ class SimulationEnvironment:
         """
         Execute one simulation tick.
 
-        Each tick:
-        1. Clear observations from previous tick
-        2. Random matching of all agents
-        3. Each pair plays the coordination game
-        4. Distribute observations (if observation_k > 0)
-        5. Agents update based on outcomes
-        6. V5: Process normative observations and enforcement
-        7. Collect metrics including norm level
+        Each tick follows a fixed update order:
+        1. Pair and action
+        2. Observe and memory update
+        3. Confidence update
+        4. Normative update (DDM / anomaly)
+        5. Enforcement signal broadcast
+        6. Metrics and convergence
 
         Returns:
             Metrics for this tick
         """
-        # Clear observations from previous tick
+        self._activate_shock_if_needed()
+
+        # Stage 1: clear observations from previous tick
         for agent in self._agents:
             agent.clear_observations()
 
-        # Get random pairs
+        # Stage 2: random matching
         pairs = self.random_matching()
 
         # Track tick statistics
@@ -506,7 +569,8 @@ class SimulationEnvironment:
         # Fast lookup of each agent's direct partner strategy in this tick.
         partner_strategy_by_agent: Dict[int, int] = {}
 
-        # Execute all interactions
+        # Stage 3: execute pair interactions (no state update yet; synchronous pipeline)
+        pending_updates: List[Tuple[Agent, int, bool, float]] = []
         for idx1, idx2 in pairs:
             agent1 = self._agents[idx1]
             agent2 = self._agents[idx2]
@@ -519,31 +583,30 @@ class SimulationEnvironment:
             partner_strategy_by_agent[idx1] = outcome.strategy2
             partner_strategy_by_agent[idx2] = outcome.strategy1
 
-            # Update both agents (anonymous: only observe partner's strategy)
-            agent1.update(
-                tick=self._current_tick,
-                partner_strategy=outcome.strategy2,
-                success=outcome.success,
-                payoff=outcome.payoff1,
-            )
-
-            agent2.update(
-                tick=self._current_tick,
-                partner_strategy=outcome.strategy1,
-                success=outcome.success,
-                payoff=outcome.payoff2,
-            )
+            pending_updates.append((agent1, outcome.strategy2, outcome.success, outcome.payoff1))
+            pending_updates.append((agent2, outcome.strategy1, outcome.success, outcome.payoff2))
 
             if outcome.success:
                 tick_successes += 1
 
-        # Distribute observations (if enabled)
+        # Stage 4: distribute observation samples + write M^E experience updates
         if self._observation_k > 0:
             self._distribute_observations(tick_interactions_list)
+        for agent, partner_strategy, success, payoff in pending_updates:
+            agent.record_experience(
+                tick=self._current_tick,
+                partner_strategy=partner_strategy,
+                success=success,
+                payoff=payoff,
+            )
 
         self._last_interactions = tick_interactions_list
 
-        # V5: Process normative memory updates
+        # Stage 5: confidence C update from prediction correctness
+        for agent, partner_strategy, success, payoff in pending_updates:
+            agent.update_predictive_confidence(partner_strategy=partner_strategy)
+
+        # Stage 6: process normative memory updates (DDM/anomaly/enforcement)
         tick_crystallisations = 0
         tick_dissolutions = 0
         tick_enforcements = 0
@@ -552,6 +615,7 @@ class SimulationEnvironment:
                 self._process_normative_step(
                     tick_interactions_list,
                     partner_strategy_by_agent=partner_strategy_by_agent,
+                    tick=self._current_tick,
                 )
 
         # Count strategy switches
@@ -559,7 +623,7 @@ class SimulationEnvironment:
             if agent.current_strategy != strategies_before[agent.id]:
                 tick_switches += 1
 
-        # Collect metrics
+        # Stage 7: collect metrics
         metrics = self._collect_metrics(
             tick_interactions=tick_interactions,
             tick_successes=tick_successes,
@@ -909,6 +973,8 @@ class SimulationEnvironment:
         self._convergence_counter = 0
         self._first_norm_tick = None
         self._normative_level_tick = None
+        self._shock_active = False
+        self._persistent_violator_strategy_by_id = {}
         self._norm_detector.reset()
         self._last_interactions = []
 

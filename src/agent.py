@@ -237,6 +237,27 @@ class Agent:
             success: Whether coordination was successful
             payoff: Payoff received
         """
+        self.record_experience(
+            tick=tick,
+            partner_strategy=partner_strategy,
+            success=success,
+            payoff=payoff,
+        )
+        self.update_predictive_confidence(partner_strategy=partner_strategy)
+
+    def record_experience(
+        self,
+        tick: int,
+        partner_strategy: int,
+        success: bool,
+        payoff: float,
+    ) -> None:
+        """
+        Update only experience-related state (M^E and interaction counters).
+
+        This method is used by synchronous tick pipelines where experience and
+        confidence are updated in separate global phases.
+        """
         # Create interaction record
         interaction = Interaction(
             tick=tick,
@@ -249,14 +270,19 @@ class Agent:
         # Update experience memory
         self._memory.add(interaction)
 
-        # Update decision mechanism based on prediction accuracy
-        if self._last_prediction is not None:
-            self._decision.update(self._last_prediction, partner_strategy)
-
         # Update statistics
         self._total_interactions += 1
         if success:
             self._successful_coordinations += 1
+
+    def update_predictive_confidence(self, partner_strategy: int) -> None:
+        """
+        Update only confidence/decision state from prediction correctness.
+
+        This corresponds to the standalone C-update phase in the tick pipeline.
+        """
+        if self._last_prediction is not None:
+            self._decision.update(self._last_prediction, partner_strategy)
 
     # =========================================================================
     # V5 Normative Memory Processing
@@ -265,6 +291,7 @@ class Agent:
     def process_normative_observations(
         self,
         observed_strategies: List[int],
+        tick: Optional[int] = None,
     ) -> Tuple[bool, bool, int]:
         """
         Process observations through normative memory.
@@ -277,6 +304,7 @@ class Agent:
 
         Args:
             observed_strategies: List of strategies observed this tick
+            tick: Current tick for crystallisation timing
 
         Returns:
             Tuple of (crystallised, dissolved, enforcement_count):
@@ -305,6 +333,7 @@ class Agent:
                     confidence=self.trust,
                     consistency=consistency,
                     dominant_strategy=dominant,
+                    tick=tick,
                 )
         else:
             # Post-crystallisation: anomaly tracking + enforcement
@@ -400,6 +429,7 @@ class Agent:
             metrics["has_norm"] = ns.has_norm
             metrics["compliance"] = ns.compliance
             metrics["enforcement_count"] = ns.enforcement_count
+            metrics["first_crystallisation_tick"] = ns.first_crystallisation_tick
 
         return metrics
 
