@@ -161,6 +161,19 @@ df = run_agent_count_sweep(
 )
 ```
 
+### V5 Core Metrics (Reproducible)
+
+```bash
+python experiments/run_v5_core_metrics_reproducible.py --trials 100 --ticks 500 --agents 100 --shock-tick 250 --out data/v5_core_metrics
+```
+
+Output includes:
+- `fig_1_norm_coverage.png`
+- `fig_2_coordination_rate.png`
+- `fig_3_crystallisation_distribution.png`
+- `fig_4_shock_robustness.png`
+- `run_report.json` (includes fixed tick update order and reproducibility fingerprints)
+
 ## Key Metrics
 
 - **Convergence Time**: Ticks to reach stable consensus (95%+)

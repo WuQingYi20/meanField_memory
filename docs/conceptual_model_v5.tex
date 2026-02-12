@@ -62,6 +62,45 @@ We propose that this step is \textbf{norm internalisation}: the process by which
     \item Agents observe partner's strategy (anonymous); additionally observe $k$ random interactions
 \end{itemize}
 
+\subsection{Per-Tick Execution Order}
+
+To ensure reproducibility and avoid implementation ambiguity, each tick follows a fixed pipeline:
+\begin{enumerate}[itemsep=2pt]
+    \item \textbf{Pair and action} (\texttt{pair\_and\_action}): random matching; each pair chooses actions and interacts.
+    \item \textbf{Observe and memory update} (\texttt{observe\_and\_memory\_update}): direct partner outcomes enter experience memory; optional social observations are sampled.
+    \item \textbf{Predictive-confidence update} (\texttt{confidence\_update}): $C_i$ updates from prediction correctness.
+    \item \textbf{Normative update} (\texttt{normative\_ddm\_or\_anomaly}): if no norm, DDM evidence accumulates; if norm exists, anomalies are counted.
+    \item \textbf{Enforcement signal broadcast} (\texttt{enforcement\_signal\_broadcast}): high-strength norm holders detecting violations broadcast one-shot normative signals.
+    \item \textbf{Metrics and convergence} (\texttt{metrics\_and\_convergence}): update coverage, coordination, norm-level, and convergence trackers.
+\end{enumerate}
+All interaction outcomes are first collected for the full population, then updates are applied in synchronized passes (experience memory pass, then confidence pass), avoiding within-tick order effects from pair processing order.
+
+Figure~\ref{fig:tick_order_v5} shows the tick-level execution graph used by the implementation.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=7mm,
+    proc/.style={draw, rounded corners, minimum width=11.8cm, minimum height=8mm, align=left, fill=gray!8, font=\small},
+    arrow/.style={->, thick}
+]
+\node[proc] (s1) {1. Pair and action: random matching, simultaneous actions, game outcomes};
+\node[proc, below=of s1] (s2) {2. Observe and memory update: partner observations + optional $k$ social observations};
+\node[proc, below=of s2] (s3) {3. Confidence update: prediction correct/wrong $\Rightarrow C_i(t+1)$};
+\node[proc, below=of s3] (s4) {4. Normative update: pre-crystallisation DDM \;/\; post-crystallisation anomaly tracking};
+\node[proc, below=of s4] (s5) {5. Enforcement broadcast: violation-triggered signals to non-crystallised receivers};
+\node[proc, below=of s5] (s6) {6. Metrics and convergence: $\% \{r_i \neq \varnothing\}$, match rate, norm level, convergence};
+
+\draw[arrow] (s1) -- (s2);
+\draw[arrow] (s2) -- (s3);
+\draw[arrow] (s3) -- (s4);
+\draw[arrow] (s4) -- (s5);
+\draw[arrow] (s5) -- (s6);
+\end{tikzpicture}
+\caption{Fixed per-tick execution order in V5. This sequence is enforced as a deterministic update pipeline in the simulator implementation.}
+\label{fig:tick_order_v5}
+\end{figure}
+
 \subsection{Agent State}
 
 Each agent $i$ at time $t$ maintains:
