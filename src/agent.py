@@ -320,29 +320,31 @@ class Agent:
         enforcement_count = 0
 
         if not self._normative_memory.has_norm():
-            # Pre-crystallisation: feed DDM
+            # Pre-crystallisation: feed DDM with signed consistency
             if observed_strategies:
                 counts = np.zeros(2)
                 for s in observed_strategies:
                     counts[s] += 1
                 total = len(observed_strategies)
-                consistency = max(counts) / total
-                dominant = int(np.argmax(counts))
+                # V5.1: signed consistency = f_A - f_B (in [-1, 1])
+                signed_consistency = (counts[0] - counts[1]) / total
 
                 crystallised = self._normative_memory.update_evidence(
                     confidence=self.trust,
-                    consistency=consistency,
-                    dominant_strategy=dominant,
+                    signed_consistency=signed_consistency,
                     tick=tick,
                 )
         else:
-            # Post-crystallisation: anomaly tracking + enforcement
+            # Post-crystallisation: anomaly tracking + enforcement + strengthening
             for s in observed_strategies:
                 if self._normative_memory.should_enforce(s, self._enforce_threshold):
                     self._normative_memory.record_enforcement()
                     enforcement_count += 1
-                else:
+                elif s != self._normative_memory.norm:
                     self._normative_memory.record_anomaly(s)
+                else:
+                    # V5.1: conforming observation strengthens norm
+                    self._normative_memory.record_conformity(s)
 
             dissolved = self._normative_memory.check_crisis()
 
@@ -377,14 +379,19 @@ class Agent:
         """
         Receive a normative enforcement signal from another agent.
 
-        Boosts DDM drift rate for the next evidence update.
-        Only effective if this agent has not yet crystallised a norm.
+        V5.1: delivers a directed push toward the enforced strategy,
+        gated by (1 - C_receiver).
 
         Args:
-            signaled_strategy: The norm strategy being enforced
+            signaled_strategy: The norm strategy being enforced (0=A, 1=B)
         """
         if self._normative_memory is not None:
-            self._normative_memory.receive_signal(self._signal_amplification)
+            confidence_gate = 1.0 - self.trust
+            self._normative_memory.receive_signal(
+                signal_amplification=self._signal_amplification,
+                enforced_strategy=signaled_strategy,
+                sender_confidence_gate=confidence_gate,
+            )
 
     # =========================================================================
     # Metrics and Reset
@@ -501,6 +508,7 @@ def create_agent(
     enforce_threshold: float = 0.7,
     compliance_exponent: float = 2.0,
     signal_amplification: float = 2.0,
+    strengthen_rate: float = 0.005,
     normative_rng: Optional[np.random.RandomState] = None,
     # Other
     initial_strategy: Optional[int] = None,
@@ -604,6 +612,7 @@ def create_agent(
             crisis_decay=crisis_decay,
             min_strength=min_strength,
             compliance_exponent=compliance_exponent,
+            strengthen_rate=strengthen_rate,
             rng=normative_rng or np.random.RandomState(),
         )
 

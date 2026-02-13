@@ -5,8 +5,15 @@ Unlike experience memory (BaseMemory), normative memory stores a discrete rule,
 not a FIFO queue. It is maintained through anomaly accumulation and crisis dynamics,
 not through sliding windows or decay.
 
+V5.1 changes (signed DDM):
+- Evidence accumulator is signed: e > 0 -> A-norm, e < 0 -> B-norm
+- Crystallisation at |e| >= theta with strategy determined by sign(e)
+- No reflecting boundary (evidence walks freely on R)
+- Sigma strengthening on conforming observations
+- Directed enforcement signals (additive push, not multiplicative boost)
+
 Based on:
-- Germar et al. (2014): DDM-based norm formation
+- Germar et al. (2014): DDM-based norm formation (two-boundary DDM)
 - Germar & Mojzisch (2019): persistent norm internalisation
 - Kuhn (1962): anomaly accumulation and crisis-triggered paradigm shifts
 - Fehr & Gaechter (2002): violation-triggered enforcement
@@ -58,6 +65,7 @@ class NormativeMemory:
         crisis_decay: float = 0.3,
         min_strength: float = 0.1,
         compliance_exponent: float = 2.0,
+        strengthen_rate: float = 0.005,
         rng: Optional[np.random.RandomState] = None,
     ):
         """
@@ -71,6 +79,7 @@ class NormativeMemory:
             crisis_decay: Multiplicative decay on crisis (lambda_crisis)
             min_strength: Below this, norm dissolves (sigma_min)
             compliance_exponent: Exponent k in compliance = sigma^k
+            strengthen_rate: Rate of sigma increase per conforming observation (alpha_sigma)
             rng: Per-agent random state for reproducibility
         """
         self._ddm_noise = ddm_noise
@@ -80,16 +89,17 @@ class NormativeMemory:
         self._crisis_decay = crisis_decay
         self._min_strength = min_strength
         self._compliance_exponent = compliance_exponent
+        self._strengthen_rate = strengthen_rate
         self._rng = rng or np.random.RandomState()
 
         # State variables
         self._norm: Optional[int] = None       # r_i
         self._strength: float = 0.0            # sigma_i (0 until crystallised)
         self._anomaly_count: int = 0           # a_i
-        self._evidence: float = 0.0            # e_i
+        self._evidence: float = 0.0            # e_i (signed: >0 for A, <0 for B)
 
-        # Signal boost: applied once then reset
-        self._signal_boost: float = 1.0
+        # Signal push: directed additive push, applied once then reset
+        self._signal_push: float = 0.0
 
         # Statistics
         self._enforcement_count: int = 0
@@ -124,28 +134,27 @@ class NormativeMemory:
         return self._norm is not None
 
     # =========================================================================
-    # DDM Norm Formation (Eq. 5-7)
+    # DDM Norm Formation — Signed Two-Boundary DDM (V5.1)
     # =========================================================================
 
     def update_evidence(
         self,
         confidence: float,
-        consistency: float,
-        dominant_strategy: int,
+        signed_consistency: float,
         tick: Optional[int] = None,
     ) -> bool:
         """
         Update DDM evidence accumulator. Only active when no norm exists.
 
-        drift = (1 - C) * consistency * signal_boost
-        e(t+1) = max(0, e(t) + drift + N(0, sigma_noise^2))
-
-        If evidence crosses threshold, norm crystallises.
+        V5.1 signed DDM:
+          drift    = (1 - C) * (f_A - f_B)
+          e(t+1)   = e(t) + drift + signal_push + N(0, sigma_noise^2)
+          |e| >= θ → crystallise with strategy = A if e>0, B if e<0
 
         Args:
             confidence: Agent's predictive confidence C_i in [0, 1]
-            consistency: max(f_A, f_B) over observed strategies
-            dominant_strategy: The most frequent observed strategy
+            signed_consistency: (f_A - f_B) in [-1, 1]; positive = A-dominant
+            tick: Current tick for crystallisation timing
 
         Returns:
             True if norm crystallised this tick, False otherwise
@@ -153,19 +162,20 @@ class NormativeMemory:
         if self._norm is not None:
             return False  # Already have a norm
 
-        # Eq. 5: drift = (1 - C) * consistency * signal_boost
-        drift = (1.0 - confidence) * consistency * self._signal_boost
+        # Drift = (1 - C) * signed_consistency
+        drift = (1.0 - confidence) * signed_consistency
 
-        # Reset signal boost after use
-        self._signal_boost = 1.0
+        # Add directed signal push (reset after use)
+        total_drift = drift + self._signal_push
+        self._signal_push = 0.0
 
-        # Eq. 6: e(t+1) = max(0, e(t) + drift + noise)
+        # Evidence update: no floor, walks freely on R
         noise = self._rng.normal(0, self._ddm_noise)
-        self._evidence = max(0.0, self._evidence + drift + noise)
+        self._evidence = self._evidence + total_drift + noise
 
-        # Eq. 7: crystallisation check
-        if self._evidence >= self._crystal_threshold:
-            self._norm = dominant_strategy
+        # Two-boundary crystallisation: |e| >= θ
+        if abs(self._evidence) >= self._crystal_threshold:
+            self._norm = 0 if self._evidence > 0 else 1  # 0=A, 1=B
             self._strength = self._initial_strength
             self._anomaly_count = 0
             if self._first_crystallisation_tick is None:
@@ -193,6 +203,29 @@ class NormativeMemory:
 
         if observed_strategy != self._norm:
             self._anomaly_count += 1
+
+    # =========================================================================
+    # Norm Strengthening (V5.1)
+    # =========================================================================
+
+    def record_conformity(self, observed_strategy: int) -> None:
+        """
+        Record a conforming observation, strengthening the norm.
+
+        If the observed strategy matches the norm, sigma increases:
+          sigma <- min(1, sigma + alpha_sigma * (1 - sigma))
+
+        Args:
+            observed_strategy: Strategy observed in an interaction
+        """
+        if self._norm is None:
+            return
+
+        if observed_strategy == self._norm:
+            self._strength = min(
+                1.0,
+                self._strength + self._strengthen_rate * (1.0 - self._strength),
+            )
 
     # =========================================================================
     # Crisis and Dissolution (Eq. 11-12)
@@ -294,21 +327,40 @@ class NormativeMemory:
         self._enforcement_count += 1
 
     # =========================================================================
-    # Signal Reception (Eq. 17)
+    # Signal Reception — Directed Push (V5.1)
     # =========================================================================
 
-    def receive_signal(self, signal_amplification: float) -> None:
+    def receive_signal(
+        self,
+        signal_amplification: float,
+        enforced_strategy: Optional[int] = None,
+        sender_confidence_gate: float = 1.0,
+    ) -> None:
         """
-        Receive a normative enforcement signal.
+        Receive a normative enforcement signal as a directed push.
 
-        Boosts DDM drift rate for the next evidence update.
+        V5.1: signal_push = (1 - C_receiver) * gamma * dir(strategy)
+        where dir(A=0) = +1, dir(B=1) = -1.
+        The confidence gate is applied by the caller (agent layer).
+
         Only effective if no norm has crystallised yet.
 
         Args:
             signal_amplification: Multiplier gamma_signal (> 1)
+            enforced_strategy: Strategy being enforced (0=A, 1=B).
+                If None, falls back to legacy behaviour (positive push).
+            sender_confidence_gate: (1 - C_receiver), applied by caller.
         """
-        if self._norm is None:
-            self._signal_boost = signal_amplification
+        if self._norm is not None:
+            return
+
+        if enforced_strategy is not None:
+            direction = 1.0 if enforced_strategy == 0 else -1.0
+        else:
+            # Legacy fallback: positive push (backward compat)
+            direction = 1.0
+
+        self._signal_push = sender_confidence_gate * signal_amplification * direction
 
     # =========================================================================
     # State and Reset
@@ -333,6 +385,6 @@ class NormativeMemory:
         self._strength = 0.0
         self._anomaly_count = 0
         self._evidence = 0.0
-        self._signal_boost = 1.0
+        self._signal_push = 0.0
         self._enforcement_count = 0
         self._first_crystallisation_tick = None

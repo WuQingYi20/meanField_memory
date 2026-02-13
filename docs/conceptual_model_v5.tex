@@ -29,7 +29,7 @@
 \maketitle
 
 \begin{abstract}
-We present a dual-memory model of norm emergence in coordination games. Agents maintain two qualitatively distinct memory systems: an \emph{experience memory} that tracks interaction history through a confidence-modulated sliding window, and a \emph{normative memory} that stores internalised rules as decision constraints. The two systems are bridged by a single state variable---predictive confidence---which measures the agent's confidence in the predictability of the social environment and governs cognitive adaptation: it controls the experience memory window (cognitive lock-in) and determines susceptibility to norm internalisation (low confidence $\to$ accept external rules). Norm formation follows a drift-diffusion process grounded in \citet{germar2014social}: uncertain agents accumulate stochastic evidence from observing consistent behaviour until a crystallisation threshold is crossed. Norm enforcement is violation-triggered and gated by norm strength $\sigma_i$, consistent with \citet{fehr2002altruistic} and \citet{toribio2023proof}. The three feedback loops of the model---individual learning, social amplification, and normative pressure---emerge naturally from the dual-memory architecture without requiring separate mechanisms.
+We present a dual-memory model of norm emergence in coordination games. Agents maintain two qualitatively distinct memory systems: an \emph{experience memory} that tracks interaction history through a confidence-modulated sliding window, and a \emph{normative memory} that stores internalised rules as decision constraints. The two systems are bridged by a single state variable---predictive confidence---which measures the agent's confidence in the predictability of the social environment and governs cognitive adaptation: it controls the experience memory window (cognitive lock-in) and determines susceptibility to norm internalisation (low confidence $\to$ accept external rules). Norm formation follows a \emph{signed} two-boundary drift-diffusion process grounded in \citet{germar2014social}: uncertain agents accumulate strategy-directional stochastic evidence until a crystallisation threshold is crossed, with opposing observations cancelling rather than reinforcing. Norms strengthen through repeated conforming observations and erode through anomaly-triggered crises. Norm enforcement is violation-triggered and gated by norm strength $\sigma_i$, with enforcement signals delivered as directed pushes toward the enforced strategy, consistent with \citet{fehr2002altruistic} and \citet{toribio2023proof}. The three feedback loops of the model---individual learning, social amplification, and normative pressure---emerge naturally from the dual-memory architecture without requiring separate mechanisms.
 \end{abstract}
 
 % =====================================================================
@@ -209,23 +209,31 @@ M_i^N = \left(\, r_i \in S \cup \{\varnothing\},\;\; \sigma_i \in [0,1],\;\; a_i
 
 Normative memory is \textbf{not FIFO}. It does not slide, decay, or reweight. Once formed, the norm persists as a discrete rule until overthrown through crisis.
 
-\subsection{Norm Formation: Drift-Diffusion Crystallisation}\label{sec:formation}
+\subsection{Norm Formation: Signed Two-Boundary Drift-Diffusion}\label{sec:formation}
 
-Norm formation follows a drift-diffusion process \citep{germar2014social,germar2019learning}. Observations accumulate as noisy evidence; a norm crystallises when accumulated evidence crosses a threshold.
+Norm formation follows a \emph{signed} two-boundary drift-diffusion process \citep{germar2014social,germar2019learning}. Observations accumulate as strategy-directional noisy evidence; a norm crystallises when accumulated evidence crosses either boundary.
 
-\paragraph{Theoretical basis.} \citet{germar2014social} showed that social norms alter the drift rate in perceptual decision-making. \citet{germar2019learning} demonstrated that this alteration \emph{persists} after social influence is removed---norms are internalised as a persistent cognitive bias, not a transient effect. \citet{tenenbaum2011grow} established that rule learning from examples is fundamentally probabilistic (Bayesian inference over rule hypotheses).
+\paragraph{Theoretical basis.} \citet{germar2014social} showed that social norms alter the drift rate in perceptual decision-making, using a standard two-boundary DDM where subjects could shift toward either response. \citet{germar2019learning} demonstrated that this alteration \emph{persists} after social influence is removed---norms are internalised as a persistent cognitive bias, not a transient effect. \citet{tenenbaum2011grow} established that rule learning from examples is fundamentally probabilistic (Bayesian inference over rule hypotheses).
 
-\paragraph{Evidence grade (strong mechanism, provisional functional form).} The empirical support for a diffusion-style mechanism is strong, but Eq.~\ref{eq:drift} is a modelling choice rather than a directly estimated law. In particular, the linear confidence gate $(1-C_i)$ should be treated as a testable assumption. Alternative gates (e.g., logistic or thresholded) are plausible and should be compared against data.
+\paragraph{Evidence grade (strong mechanism, provisional functional form).} The empirical support for a diffusion-style mechanism is strong, but Eq.~\ref{eq:drift} is a modelling choice rather than a directly estimated law. In particular, the linear confidence gate $(1-C_i)$ should be treated as a testable assumption. Alternative gates (e.g., logistic or thresholded) are plausible and should be compared against data. The signed two-boundary architecture aligns more closely with \citet{germar2014social}'s original DDM than a single-boundary formulation.
 
 \paragraph{Mechanism.} At each tick, if $r_i = \varnothing$ (no norm yet):
 
 \begin{align}
-\text{drift}_i &= (1 - C_i) \times \text{consistency}(\text{observations}) \label{eq:drift} \\
-e_i(t\!+\!1) &= \max\!\big(0,\; e_i(t) + \text{drift}_i + \mathcal{N}(0, \sigma_{\text{noise}}^2)\big) \label{eq:ddm} \\
-\text{If } e_i &> \theta_{\text{crystal}}: \quad r_i \leftarrow s^*,\;\; \sigma_i \leftarrow \sigma_0,\;\; a_i \leftarrow 0 \label{eq:crystal}
+\text{drift}_i &= (1 - C_i) \times (f_A - f_B) \label{eq:drift} \\
+e_i(t\!+\!1) &= e_i(t) + \text{drift}_i + \text{signal\_push}_i + \mathcal{N}(0, \sigma_{\text{noise}}^2) \label{eq:ddm} \\
+\text{If } |e_i| &\geq \theta_{\text{crystal}}: \quad r_i \leftarrow \begin{cases} A & \text{if } e_i > 0 \\ B & \text{if } e_i < 0 \end{cases},\;\; \sigma_i \leftarrow \sigma_0,\;\; a_i \leftarrow 0 \label{eq:crystal}
 \end{align}
 
-where $\text{consistency} = \max(f_A, f_B)$ over observed strategies, $s^*$ is the dominant observed strategy, and $\theta_{\text{crystal}}$ is the crystallisation threshold. We therefore interpret Eq.~\ref{eq:drift}--\ref{eq:crystal} as a falsifiable candidate implementation of a confidence-gated norm uptake process, not as a uniquely identified update law.
+where $(f_A - f_B) \in [-1, 1]$ is the \emph{signed} consistency of observed strategies (positive when $A$ dominates, negative when $B$ dominates, zero at 50-50), $\text{signal\_push}_i$ is the directed enforcement signal (Section~\ref{sec:enforcement_signal}; zero when no signal received), and $\theta_{\text{crystal}}$ is the crystallisation threshold. Evidence $e_i$ walks freely on $\mathbb{R}$ with no reflecting boundary; the two absorbing boundaries at $\pm\theta_{\text{crystal}}$ determine both \emph{whether} and \emph{which} norm forms. We therefore interpret Eq.~\ref{eq:drift}--\ref{eq:crystal} as a falsifiable candidate implementation of a confidence-gated norm uptake process, not as a uniquely identified update law.
+
+\paragraph{Design rationale: signed consistency.} Using the signed difference $(f_A - f_B)$ rather than the unsigned maximum $\max(f_A, f_B)$ is critical for three reasons:
+
+\begin{enumerate}[itemsep=2pt]
+    \item \textbf{Silence at 50-50}: when the population is evenly split, $f_A - f_B = 0$ and drift vanishes. No norm should form from pure noise---an agent observing equal frequencies of both strategies has no evidence that either is ``the rule.'' With unsigned consistency, $\max(0.5, 0.5) = 0.5 > 0$, which produces spurious norm formation in $\sim$8 ticks.
+    \item \textbf{Cancellation}: observations favouring $A$ and observations favouring $B$ produce opposite-sign drift, so they cancel rather than reinforce. This prevents strategy-agnostic evidence accumulation where a mixed environment could drive crystallisation.
+    \item \textbf{Direction from accumulation}: the norm's identity ($A$ or $B$) is determined by the \emph{sign of accumulated evidence} at crystallisation, not by a snapshot of the last observation. This makes the norm robust to sampling noise in any single tick.
+\end{enumerate}
 
 \paragraph{Properties.}
 \begin{itemize}[itemsep=2pt]
@@ -233,7 +241,15 @@ where $\text{consistency} = \max(f_A, f_B)$ over observed strategies, $s^*$ is t
     \item \textbf{Not purely statistical}: the norm is a discrete rule, not a probability distribution; evidence accumulates toward a phase transition, not a gradual belief update
     \item \textbf{Confidence-gated}: low predictive confidence $\to$ high drift rate (agents who cannot predict the environment absorb norm evidence faster, consistent with ``copy when uncertain''); high predictive confidence $\to$ low drift rate (agents who can already predict the environment have no need to infer external rules)
     \item \textbf{Grounded in ``copy when uncertain''} \citep{rendell2010copy}: agents internalise norms \emph{precisely when} their own experience is unreliable
+    \item \textbf{Two-boundary}: aligns with \citet{germar2014social}'s original experimental DDM, where perceptual judgments could shift in either direction
+    \item \textbf{Correct by accumulation}: the norm strategy is determined by the direction of net evidence, not by a single-tick snapshot, making crystallisation robust to sampling noise
 \end{itemize}
+
+\paragraph{Expected crystallisation time.} For $|\mu| \gg \sigma_{\text{noise}}^2 / \theta_{\text{crystal}}$ (deterministic approximation):
+\begin{equation}\label{eq:crystal_time}
+\mathbb{E}[T_{\text{crystal}}] \approx \frac{\theta_{\text{crystal}}}{|\mu|} = \frac{\theta_{\text{crystal}}}{(1 - C_i)|f_A - f_B|}
+\end{equation}
+At 50-50 ($f_A = f_B$), the expected time diverges (pure diffusion: $\mathbb{E}[T] = \theta_{\text{crystal}}^2 / \sigma_{\text{noise}}^2 \approx 900$ ticks with defaults). At 70-30, $\mathbb{E}[T] \approx 13$ ticks. This ensures norms form only when genuine social consensus exists.
 
 \paragraph{Why does a norm form?} The ``should'' does not emerge from the agent's own experience. It is \emph{inferred} from the contrast between the agent's uncertainty and others' consistency \citep{sherif1936psychology,deutsch1955study}:
 \begin{quote}
@@ -250,7 +266,23 @@ Once $r_i \neq \varnothing$, the norm is maintained by anomaly tracking, not sta
 \text{If } s^*_{\text{observed}} \neq r_i: \quad a_i \leftarrow a_i + 1
 \end{equation}
 
-Observations \emph{consistent} with the norm cause nothing---they are ``normal.'' This is the key non-statistical property: 99 conforming observations and 1 violation $\neq$ ``norm strength = 0.99.'' The 1 violation is an anomaly, not a data point for updating.
+Observations \emph{consistent} with the norm cause nothing to the anomaly counter---they are ``normal.'' This is the key non-statistical property: 99 conforming observations and 1 violation $\neq$ ``norm strength = 0.99.'' The 1 violation is an anomaly, not a data point for updating.
+
+\subsection{Norm Strengthening: Conformity Reinforcement}\label{sec:strengthening}
+
+While anomalies erode norms, conforming observations gradually \emph{strengthen} them:
+
+\begin{equation}\label{eq:strengthen}
+\text{If } s^*_{\text{observed}} = r_i: \quad \sigma_i \leftarrow \min\!\big(1,\; \sigma_i + \alpha_\sigma (1 - \sigma_i)\big)
+\end{equation}
+
+where $\alpha_\sigma$ is a small per-observation strengthening rate (default $0.005$). This is structurally identical to the predictive confidence increase (Eq.~\ref{eq:confidence_update}): additive, saturating at 1, with diminishing returns as strength approaches its ceiling.
+
+\paragraph{Evidence basis.} \citet{will2023stronger} confirmed that ``stronger norm internalisation is associated with stronger norm compliance'' and behavioural inflexibility. \citet{gintis2003internalization} showed that internalised norms create intrinsic motivation that deepens with practice. \citet{andrighetto2015agents} found that compliance becomes ``an end in itself,'' with compliance strength proportional to norm salience. These findings converge on a clear pattern: norms that are repeatedly validated by experience grow stronger over time.
+
+\paragraph{Asymmetry preserved.} The strengthening rate $\alpha_\sigma = 0.005$ is far slower than crisis decay $\lambda_{\text{crisis}} = 0.3$. This preserves the ``easy to break, hard to build'' asymmetry: a norm can lose 70\% of its strength in a single crisis (10 violations), but requires $\sim$100 conforming observations to recover equivalent ground. The asymmetry mirrors the trust dynamics (Eq.~\ref{eq:confidence_update}) and is consistent with the general negativity bias in social evaluation \citep{slovic1993perceived}.
+
+\paragraph{New emergent property: crisis recovery.} Without strengthening, a norm that survives one crisis is permanently weakened ($\sigma = 0.24$, compliance $= 0.058$). With strengthening, the norm can \emph{recover} if violations cease: $\sigma$ climbs back toward enforcement threshold ($\theta_{\text{enforce}} = 0.7$) in $\sim$29 ticks of conforming observations. This creates a richer norm lifecycle: \emph{formation $\to$ strengthening $\to$ crisis $\to$ recovery or dissolution}.
 
 \subsection{Norm Overthrow: Crisis and Phase Transition}
 
@@ -349,13 +381,17 @@ The same observed violation produces qualitatively different responses depending
 
 This dual response is a \textbf{novel contribution} of our model, synthesising across the conformity, punishment, and moral conviction literatures. It has not been tested in a single experiment but follows as a natural prediction from convergent evidence.
 
-\subsection{Effect of Normative Signals on Receivers}
+\subsection{Effect of Normative Signals on Receivers}\label{sec:enforcement_signal}
 
-Receiving a normative signal amplifies the DDM drift rate for norm formation (Eq.~\ref{eq:drift}):
+Receiving a normative signal delivers a \emph{directed push} to the DDM evidence accumulator, independent of the receiver's current observations:
 
-\begin{equation}\label{eq:signal_boost}
-\text{drift}_i^{\text{signal}} = (1 - C_i) \times \text{consistency} \times \gamma_{\text{signal}}, \quad \gamma_{\text{signal}} > 1
+\begin{equation}\label{eq:signal_push}
+\text{signal\_push}_i = (1 - C_i) \times \gamma_{\text{signal}} \times \text{dir}(s_{\text{enforced}}), \quad \text{dir}(A) = +1,\; \text{dir}(B) = -1
 \end{equation}
+
+The push is \emph{additive} (not multiplicative) and enters the DDM update in Eq.~\ref{eq:ddm}. It is confidence-gated: uncertain agents are pushed more strongly.
+
+\paragraph{Why directed push, not drift multiplier?} In the signed DDM, the observation-based drift can temporarily point in the ``wrong'' direction due to sampling noise (e.g., an agent observing 3B/2A in a majority-$A$ population). A multiplicative signal boost would amplify this noise-driven drift in the wrong direction. A directed push ensures the enforcement signal always pushes evidence toward the enforced strategy, regardless of the receiver's current observations.
 
 A normative signal is stronger than a behavioural observation because it carries explicit prescriptive content (``you \emph{should} do $X$''), not merely descriptive information (``someone did $X$'').
 
@@ -367,10 +403,10 @@ Observations are processed by \textbf{both} memory systems simultaneously, not r
 
 \begin{enumerate}[itemsep=2pt]
     \item \textbf{Experience memory}: observations are additional data points, updating the belief distribution (statistical processing)
-    \item \textbf{Normative memory}: the same observations are checked for consensus (rule detection)
+    \item \textbf{Normative memory}: the same observations are checked for consensus (rule detection) or validity (anomaly/conformity tracking)
     \begin{itemize}
-        \item If $r_i = \varnothing$: consistency feeds the DDM evidence accumulator (Eq.~\ref{eq:ddm})
-        \item If $r_i \neq \varnothing$: violations increment the anomaly counter (Eq.~\ref{eq:anomaly})
+        \item If $r_i = \varnothing$: signed consistency $(f_A - f_B)$ feeds the DDM evidence accumulator (Eq.~\ref{eq:ddm})
+        \item If $r_i \neq \varnothing$: violations increment the anomaly counter (Eq.~\ref{eq:anomaly}); conforming observations strengthen the norm (Eq.~\ref{eq:strengthen})
     \end{itemize}
 \end{enumerate}
 
@@ -557,10 +593,11 @@ Crystallisation threshold & $\theta_{\text{crystal}}$ & 3.0 & Normative & --- \\
 Initial norm strength & $\sigma_0$ & 0.8 & Normative & --- \\
 Crisis threshold & $\theta_{\text{crisis}}$ & 10 & Normative & --- \\
 Crisis decay & $\lambda_{\text{crisis}}$ & 0.3 & Normative & --- \\
+Strengthen rate & $\alpha_\sigma$ & 0.005 & Normative & per conforming observation; \citet{will2023stronger}, \citet{gintis2003internalization} \\
 \midrule
 Enforcement threshold (on $\sigma$) & $\theta_{\text{enforce}}$ & 0.7 & Normative & boundary condition from \citet{toribio2023proof}; value calibrated \\
 Compliance exponent & $k$ & 2 & Both & candidate function shape; model comparison \\
-Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & --- \\
+Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & directed push magnitude; --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -646,7 +683,7 @@ Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & --- \\
 
 \subsection*{The Model in One Paragraph}
 
-Agents maintain two memory systems bridged by predictive confidence. \textbf{Experience memory} stores interaction history in a confidence-modulated sliding window, producing statistical beliefs; this creates \emph{cognitive lock-in} where successful coordination stabilises beliefs through expanded memory. \textbf{Normative memory} stores internalised rules as decision constraints, formed through a stochastic drift-diffusion process \citep{germar2019learning} when uncertain agents observe consistent behaviour. Once formed, norms are maintained through anomaly accumulation (not statistical updating) and overthrown only through crisis-induced phase transitions. Predictive confidence determines whether an agent is a \emph{norm receiver} (low confidence $\to$ cannot predict the environment, so internalises others' consistency as a rule) or a \emph{norm follower} (moderate/high confidence $\to$ norm provides a useful constraint supplementing experience). Enforcement is gated by normative conviction: agents with high norm strength $\sigma_i$ treat violations as errors to be corrected, while low-$\sigma_i$ agents accumulate anomalies. The three feedback loops---cognitive lock-in, social amplification, and normative pressure---emerge naturally from this architecture. The result: a model where experience memory explains norm \emph{stability}, normative memory explains norm \emph{prescriptive force}, and their interaction produces self-enforcing social norms from cold start.
+Agents maintain two memory systems bridged by predictive confidence. \textbf{Experience memory} stores interaction history in a confidence-modulated sliding window, producing statistical beliefs; this creates \emph{cognitive lock-in} where successful coordination stabilises beliefs through expanded memory. \textbf{Normative memory} stores internalised rules as decision constraints, formed through a signed two-boundary drift-diffusion process \citep{germar2014social,germar2019learning} when uncertain agents observe consistent behaviour---with opposing evidence cancelling rather than reinforcing, and norms forming only when genuine consensus exists. Once formed, norms are strengthened by conforming observations and maintained through anomaly accumulation (not statistical updating); they are overthrown only through crisis-induced phase transitions. Predictive confidence determines whether an agent is a \emph{norm receiver} (low confidence $\to$ cannot predict the environment, so internalises others' consistency as a rule) or a \emph{norm follower} (moderate/high confidence $\to$ norm provides a useful constraint supplementing experience). Enforcement is gated by normative conviction: agents with high norm strength $\sigma_i$ treat violations as errors to be corrected (broadcasting directed enforcement signals), while low-$\sigma_i$ agents accumulate anomalies. The three feedback loops---cognitive lock-in, social amplification, and normative pressure---emerge naturally from this architecture. The result: a model where experience memory explains norm \emph{stability}, normative memory explains norm \emph{prescriptive force}, and their interaction produces self-enforcing social norms from cold start.
 
 \subsection*{Key Equations}
 
@@ -654,9 +691,12 @@ Agents maintain two memory systems bridged by predictive confidence. \textbf{Exp
 \text{Experience belief:} && b_A &= n_A / |M'^E| && \text{(statistical)} \\
 \text{Confidence:} && C^* &= p\alpha / (p\alpha + (1\!-\!p)\beta) && \text{(steady state)} \\
 \text{Window:} && w &= \text{base} + \lfloor C(\text{max} - \text{base}) \rfloor && \text{(lock-in)} \\
-\text{DDM:} && e(t\!+\!1) &= e(t) + (1\!-\!C) \cdot \text{consistency} + \mathcal{N}(0,\sigma^2) && \text{(norm formation)} \\
+\text{DDM:} && e(t\!+\!1) &= e(t) + (1\!-\!C)(f_A\!-\!f_B) + \text{push} + \mathcal{N}(0,\sigma^2) && \text{(signed, two-boundary)} \\
+\text{Crystallise:} && |e| &\geq \theta \;\Rightarrow\; r = A \text{ if } e>0,\; B \text{ if } e<0 && \text{(direction from accumulation)} \\
+\text{Strengthen:} && s^*\!=\!r &\;\Rightarrow\; \sigma \leftarrow \min(1,\; \sigma + \alpha_\sigma(1\!-\!\sigma)) && \text{(conformity reinforcement)} \\
 \text{Compliance:} && c &= \sigma^k && \text{(norm constraint)} \\
 \text{Decision:} && \mathbf{b}^{\text{eff}} &= c \cdot \mathbf{b}^{\text{norm}} + (1\!-\!c) \cdot \mathbf{b}^{\text{exp}} && \text{(integration)} \\
+\text{Signal push:} && \text{push} &= (1\!-\!C) \cdot \gamma \cdot \text{dir}(s_{\text{enforced}}) && \text{(directed, confidence-gated)} \\
 \text{Enforcement:} && & \sigma > \theta_{\text{enforce}} \,\wedge\, s^* \neq r \;\Rightarrow\; \text{broadcast}(r) && \text{(violation-triggered)}
 \end{align*}
 
@@ -664,7 +704,7 @@ Agents maintain two memory systems bridged by predictive confidence. \textbf{Exp
 
 Our predictive confidence variable is related to but distinct from the concept of trust in social psychology. Interpersonal trust \citep{rotter1967new} concerns expectations about specific partners' behaviour; institutional trust \citep{luhmann1979trust} concerns expectations about systemic reliability. Predictive confidence is narrower and more operational: it measures the agent's belief that the social environment is statistically stable enough for past experience to predict future interactions. This aligns with the volatility estimation framework of \citet{behrens2007learning}, where learning rate adjusts to perceived environmental change rate. In our model, predictive confidence \emph{is} the inverse of perceived volatility, implemented through asymmetric update dynamics.
 
-\paragraph{Scope of predictive confidence.} Predictive confidence $C_i$ governs two pre-crystallisation processes: (1)~the experience memory window (Eq.~\ref{eq:window}), determining how much past data the agent retains, and (2)~the DDM drift rate (Eq.~\ref{eq:drift}), determining how quickly the agent absorbs norm evidence (``copy when uncertain''). It does \emph{not} govern post-crystallisation norm compliance. Once a norm has crystallised, compliance is determined by norm strength $\sigma_i$ (Eq.~\ref{eq:compliance}), which tracks the norm's internal integrity through anomaly accumulation and crisis dynamics. This separation reflects the distinction between epistemic uncertainty (``can I predict?'') and normative conviction (``how binding is the rule?'')---an agent may be highly confident in predicting the environment \emph{because} it follows a strong norm, and that confidence should not undermine the very compliance that produces it.
+\paragraph{Scope of predictive confidence.} Predictive confidence $C_i$ governs two pre-crystallisation processes: (1)~the experience memory window (Eq.~\ref{eq:window}), determining how much past data the agent retains, and (2)~the DDM drift rate (Eq.~\ref{eq:drift}), determining how quickly the agent absorbs norm evidence (``copy when uncertain''). It also gates enforcement signal reception (Eq.~\ref{eq:signal_push}): uncertain agents are pushed more strongly by directed signals. It does \emph{not} govern post-crystallisation norm compliance. Once a norm has crystallised, compliance is determined by norm strength $\sigma_i$ (Eq.~\ref{eq:compliance}), which evolves through conformity strengthening (Eq.~\ref{eq:strengthen}), anomaly accumulation, and crisis dynamics. This separation reflects the distinction between epistemic uncertainty (``can I predict?'') and normative conviction (``how binding is the rule?'')---an agent may be highly confident in predicting the environment \emph{because} it follows a strong norm, and that confidence should not undermine the very compliance that produces it.
 
 % =====================================================================
 \bibliographystyle{apalike}
