@@ -31,6 +31,7 @@ class NormativeConfig:
     enforce_threshold: float = 0.7        # Min sigma for enforcement theta_enforce
     compliance_exponent: float = 2.0      # Exponent k in compliance = sigma^k
     signal_amplification: float = 2.0     # DDM drift multiplier gamma_signal
+    strengthen_rate: float = 0.005        # Sigma increase per conforming observation alpha_sigma (V5.1)
 
 
 @dataclass

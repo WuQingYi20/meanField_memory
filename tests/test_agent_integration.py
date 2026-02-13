@@ -183,7 +183,7 @@ class TestProcessNormativeObservations:
             initial_strategy=0,
         )
 
-        # All strategy 0 -> consistency = 1.0, C~=0.01 -> drift ~= 0.99
+        # All strategy 0 -> signed_consistency = (3-0)/3 = 1.0, C~=0.01 -> drift ~= 0.99
         crystallised, dissolved, enforcements = agent.process_normative_observations([0, 0, 0])
         assert not crystallised  # threshold=10, only 1 tick
         assert nm.evidence > 0
@@ -203,7 +203,7 @@ class TestProcessNormativeObservations:
             initial_strategy=0,
         )
 
-        # drift = (1-0.01) * 1.0 = 0.99 > 0.5 -> crystallise
+        # V5.1: signed_consistency = (3-0)/3 = 1.0, drift = (1-0.01)*1.0 = 0.99 > 0.5
         crystallised, dissolved, enforcements = agent.process_normative_observations([0, 0, 0])
         assert crystallised
         assert nm.has_norm()
@@ -225,7 +225,7 @@ class TestReceiveNormativeSignal:
     """Tests for receiving enforcement signals."""
 
     def test_signal_boosts_ddm(self):
-        """Receiving normative signal should boost DDM drift."""
+        """Receiving normative signal should push DDM evidence toward enforced strategy."""
         nm = NormativeMemory(
             ddm_noise=0.0,
             crystal_threshold=100.0,
@@ -240,18 +240,19 @@ class TestReceiveNormativeSignal:
             initial_strategy=0,
         )
 
-        # First update without signal: drift = (1-0.01) * 1.0 * 1.0 ~= 0.99
+        # First update without signal: signed_consistency=(3-0)/3=1.0, drift=(1-0.01)*1.0=0.99
         agent.process_normative_observations([0, 0, 0])
         evidence_1 = nm.evidence
         assert evidence_1 == pytest.approx(0.99)
 
-        # Receive signal
+        # Receive signal for strategy A
+        # V5.1: signal_push = (1-C) * gamma * dir(A) = (1-0.01) * 3.0 * 1.0 = 2.97
         agent.receive_normative_signal(0)
 
-        # Second update with signal boost: drift = (1-0.01) * 1.0 * 3.0 ~= 2.97
+        # Second update: drift = 0.99 + signal_push 2.97 = 3.96
         agent.process_normative_observations([0, 0, 0])
         evidence_2 = nm.evidence
-        assert evidence_2 == pytest.approx(0.99 + 2.97)  # 3.96
+        assert evidence_2 == pytest.approx(0.99 + 0.99 + 2.97)  # prior + drift + push
 
 
 class TestCreateAgentFactory:

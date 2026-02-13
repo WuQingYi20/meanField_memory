@@ -127,6 +127,7 @@ class SimulationEnvironment:
         enforce_threshold: float = 0.7,
         compliance_exponent: float = 2.0,
         signal_amplification: float = 2.0,
+        strengthen_rate: float = 0.005,
         # Shock injection (robustness experiments)
         shock_tick: Optional[int] = None,
         shock_violator_fraction: float = 0.0,
@@ -170,6 +171,7 @@ class SimulationEnvironment:
             enforce_threshold: Min sigma for enforcement
             compliance_exponent: Exponent k in sigma^k
             signal_amplification: DDM drift multiplier gamma_signal
+            strengthen_rate: Sigma increase per conforming observation (V5.1)
             shock_tick: Tick T at which persistent violators are injected
             shock_violator_fraction: Injected violator ratio epsilon in [0, 1]
             shock_violate_strategy: Forced strategy of violators (None=opposite majority at T)
@@ -239,6 +241,7 @@ class SimulationEnvironment:
             "enforce_threshold": enforce_threshold,
             "compliance_exponent": compliance_exponent,
             "signal_amplification": signal_amplification,
+            "strengthen_rate": strengthen_rate,
             "shock_tick": shock_tick,
             "shock_violator_fraction": shock_violator_fraction,
             "shock_violate_strategy": shock_violate_strategy,
@@ -282,6 +285,7 @@ class SimulationEnvironment:
                 enforce_threshold=enforce_threshold,
                 compliance_exponent=compliance_exponent,
                 signal_amplification=signal_amplification,
+                strengthen_rate=strengthen_rate,
                 normative_rng=np.random.RandomState(random_seed + i if random_seed is not None else None),
             )
             self._agents.append(agent)
@@ -524,8 +528,8 @@ class SimulationEnvironment:
                 total_dissolutions += 1
 
         # Step 2: Broadcast enforcement signal once per tick.
-        # Equivalent semantics: receive_signal() sets a one-shot multiplier, so
-        # repeated signals in the same tick do not accumulate additional effect.
+        # V5.1: receive_normative_signal() delivers a directed push gated by
+        # (1 - C_receiver), so the signal correctly targets the enforced strategy.
         if any_enforcement_signal is not None:
             for agent in self._agents:
                 agent.receive_normative_signal(any_enforcement_signal)
