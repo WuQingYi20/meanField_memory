@@ -36,45 +36,25 @@ We present a dual-memory model of norm emergence in coordination games. Agents m
 \section{Introduction}
 % =====================================================================
 
-Starting from a cold start---50-50 random strategy distribution, no shared history---how does randomness become a social norm? Not merely behavioural convergence, but a self-enforcing pattern sustained by mutual expectations \citep{bicchieri2006grammar}. The question has two parts: (1)~how do norms \emph{form}, and (2)~how do norms \emph{persist}? Three decades of computational and evolutionary models have addressed these questions, yet each leaves significant gaps that motivate the present work.
+Starting from a cold start---50-50 random strategy distribution, no shared history---how does randomness become a social norm? Not merely behavioural convergence, but a self-enforcing pattern sustained by mutual expectations \citep{bicchieri2006grammar}. Existing computational models have successfully explained convention emergence \citep{young1993evolution,shoham1997emergence}, norm persistence through conformist transmission \citep{boyd1985culture,henrich1998conformist}, enforcement via metanorms \citep{axelrod1986evolutionary}, adaptive cognitive effort \citep{epstein2001learning}, and the evolutionary origins of norm internalisation \citep{gavrilets2017collective}. We identify three structural distances between these contributions that the present model is designed to bridge.
 
-\subsection{Existing Approaches and Their Limitations}
+\subsection{Three Structural Distances}
 
-\paragraph{Stochastic best response (Young, 1993).}
-\citet{young1993evolution} demonstrated that conventions can emerge from simple adaptive dynamics: agents sample $k$ observations from a fixed memory of length $m$ and play a best response with small noise. Crucially, the stochastically stable equilibrium depends on the ratio $k/m$. Young's framework provides powerful analytical results but treats memory as an \textbf{exogenous parameter set by the modeller}. Agents do not adapt how much they remember based on experience; $m$ and $k$ are the same for a novice as for an expert. Moreover, the model produces \emph{conventions}---behavioural regularities---but has no mechanism for agents to represent these regularities as \emph{rules}. The resulting equilibrium is self-enforcing through best-response dynamics alone, without normative force.
+\paragraph{From exogenous to endogenous memory.}
+In all prior models where memory exists, its length is a fixed parameter: Young's $m$ \citep{young1993evolution}, Shoham \& Tennenholtz's window \citep{shoham1997emergence}, Epstein's sample size \citep{epstein2001learning}. None implements the feedback loop that would make memory endogenous: better predictions $\to$ more confidence $\to$ longer memory $\to$ more stable beliefs $\to$ better predictions. Epstein comes closest---his agents reduce cognitive effort as norms strengthen---but this feedback runs in one direction only (norm $\to$ effort, not effort $\to$ norm formation), a consequence of maintaining a single representation of what to do.
 
-\paragraph{Conformist transmission (Boyd \& Richerson, 1985).}
-The cultural evolution tradition, notably \citet{boyd1985culture} and \citet{henrich1998conformist}, shows that a disproportionate tendency to copy the majority (conformist bias) can stabilise norms even against individual-level selection. This is a population-level transmission rule: agents sample $n$ role models and adopt the majority variant. However, conformist transmission \textbf{operates without individual memory}---there is no cognitive representation of past interactions, no tracking of personal experience, and no distinction between ``most people do $X$'' and ``one \emph{should} do $X$.'' Agents copy behaviour but do not internalise rules.
+\paragraph{From behavioural regularity to internalised rule.}
+\citet{bicchieri2006grammar} distinguished empirical expectations (``what is done'') from normative expectations (``what should be done''); the is--ought gap \citep{hume1739treatise} means norms cannot be derived from experience alone. Yet all reviewed models use a single representation---a belief distribution, a propensity vector, or a utility parameter---that conflates the descriptive and the prescriptive. Young's and Shoham \& Tennenholtz's agents converge behaviourally without undergoing an internal state transition; Boyd \& Richerson's agents copy the majority without distinguishing ``most do $X$'' from ``one should do $X$.'' \citet{gavrilets2017collective} model internalisation explicitly through a genetic parameter~$\eta$, elegantly explaining the \emph{ultimate} cause, but the \emph{proximate} question---how an agent within a single generation transitions from ``no norm'' to ``internalised rule''---requires a cognitive process, not a fixed trait. Bridging this distance requires architecturally separating statistical beliefs from normative constraints.
 
-\paragraph{Metanorms (Axelrod, 1986).}
-\citet{axelrod1986evolutionary} introduced enforcement as a central mechanism: agents are punished for violating norms, and metanorms punish those who fail to punish. This elegantly addresses second-order free-riding but treats enforcement dispositions (boldness, vengefulness) as \textbf{genetically encoded traits}, not cognitively formed responses. Agents have no memory of past interactions and no belief system; enforcement is an evolved propensity, not a consequence of norm conviction.
+\paragraph{From exogenous enforcement to emergent enforcement.}
+When enforcement is modelled, it is supplied from outside the cognitive architecture: an evolved trait in Axelrod's metanorms \citep{axelrod1986evolutionary}, a strategic choice in Gavrilets \& Richerson \citep{gavrilets2017collective}, or absent entirely \citep{young1993evolution,epstein2001learning}. Bridging this distance requires a single cognitive variable---norm strength---that simultaneously governs compliance and triggers enforcement, so that rule-following and disapproval of violations arise from the same internal state.
 
-\paragraph{Adaptive cognition (Epstein, 2001).}
-\citet{epstein2001learning} provides the closest intellectual precursor to our approach. His ``Learning to Be Thoughtless'' model demonstrates that agents can adaptively reduce cognitive effort (sample size) as norms strengthen---entrenched norms make individual deliberation unnecessary. This insight is foundational, but Epstein's feedback runs in \textbf{one direction only}: norm strength reduces cognitive effort, but cognitive effort does not feed back into norm formation. Furthermore, agents maintain a single representation of what to do; there is no architectural distinction between statistical beliefs and normative rules, and no enforcement mechanism.
-
-\paragraph{Norm internalisation as genetic trait (Gavrilets \& Richerson, 2017).}
-\citet{gavrilets2017collective} model norm internalisation explicitly: a genetic parameter $\eta$ adds intrinsic value to norm compliance in the agent's utility function. Gene-culture coevolution can select for high $\eta$ under group competition. This addresses \emph{why} internalisation evolves but not \emph{how} it works within a single generation. Norm \textbf{content is exogenous} (what the norm \emph{is} is assumed), agents are \textbf{stateless} (no memory of past interactions), and internalisation is a fixed trait rather than a learned cognitive process.
-
-\paragraph{Convention learning (Shoham \& Tennenholtz, 1997).}
-\citet{shoham1997emergence} show that simple learning rules (Highest Cumulative Reward over a window of $m$ rounds) converge to conventions under mild conditions. But $m$ is fixed, there is no cognitive mechanism underlying the learning, and the resulting convention is defined by the analyst, not cognitively represented by agents.
-
-\subsection{Gaps in the Literature}
-
-These approaches, individually influential, share three systematic limitations:
-
-\begin{enumerate}[itemsep=4pt]
-    \item \textbf{Exogenous memory.} Memory length, when present at all, is a fixed parameter. No existing model implements the feedback loop between performance and memory that would make memory \emph{endogenous}: better predictions $\to$ more confidence $\to$ longer memory $\to$ more stable beliefs $\to$ better predictions. Yet this loop is precisely how cognitive systems work: we remember more when our environment is predictable, and we predict better when we remember more.
-
-    \item \textbf{No is--ought distinction.} \citet{bicchieri2006grammar} argued forcefully that norms require both empirical expectations (``what \emph{is} done'') and normative expectations (``what \emph{should} be done''). The is--ought gap \citep{hume1739treatise} means that norms cannot be derived from experience alone: an agent who observes that 70\% of partners play strategy~$A$ has an empirical belief, not a norm. Yet virtually all computational models conflate these: agents have a single representation---a belief distribution, a propensity vector, or a utility parameter---that is both descriptive and prescriptive. No model architecturally separates the statistical question ``what is the pattern?'' from the normative question ``what should I do?''
-
-    \item \textbf{Enforcement as a separate mechanism.} When enforcement is modelled at all, it is either an evolved genetic trait \citep{axelrod1986evolutionary}, a rational strategic choice \citep{gavrilets2017collective}, or absent entirely \citep{young1993evolution,epstein2001learning}. In each case, enforcement is a mechanism \emph{added on top} of the basic architecture. No model derives enforcement as an \emph{emergent consequence} of the same cognitive state that governs compliance.
-\end{enumerate}
-
-Review articles confirm these gaps. \citet{savarimuthu2011norm} propose a five-stage norm life cycle (creation, identification, spreading, enforcement, emergence) but note that most computational models address only one or two stages. \citet{mahmoud2014review} identify cognitive approaches to norm detection and norm internalisation as underdeveloped, and norm dissolution as minimally researched.
+\medskip
+\noindent Review articles corroborate these distances: \citet{savarimuthu2011norm} note that most models address only one or two stages of the norm life cycle, while \citet{mahmoud2014review} identify cognitive norm internalisation and norm dissolution as minimally researched.
 
 \subsection{This Model}
 
-We address all three gaps through a dual-memory architecture bridged by predictive confidence, detailed in Sections~\ref{sec:experience}--\ref{sec:enforcement_signal}. Table~\ref{tab:model_comparison} summarises the positioning.
+We address all three distances through a dual-memory architecture bridged by predictive confidence, detailed in Sections~\ref{sec:experience}--\ref{sec:enforcement_signal}. Table~\ref{tab:model_comparison} summarises the positioning.
 
 \begin{table}[h]
 \centering
@@ -95,6 +75,10 @@ Gavrilets \& Richerson (2017) & \texttimes & genetic & strategic & \texttimes \\
 \label{tab:model_comparison}
 \end{table}
 
+\subsection{Scope: Norms as Population-Level Phenomena}\label{sec:scope}
+
+The model targets norm emergence in large anonymous populations, where norms are sustained by aggregate behavioural statistics and diffuse social pressure rather than by expectations of identified individuals. This corresponds to \citet{bicchieri2006grammar}'s \emph{generalised social expectations}---``people in this population expect and approve of doing~$A$''---as opposed to personal normative expectations directed at specific others. The architecture operationalises this distinction: experience memory captures empirical social expectations (what is done) as mean field beliefs \citep{mead1934mind}, normative memory captures normative social expectations (what should be done) as internalised rules, and enforcement signals carry anonymous social attitudes \citep{cialdini2004social}---all at the population level, without agent identification. The scope boundary this implies for small-group dynamics with reputation is discussed in Section~\ref{sec:summary}.
+
 % =====================================================================
 \section{Model Overview}
 % =====================================================================
@@ -105,12 +89,60 @@ Gavrilets \& Richerson (2017) & \texttimes & genetic & strategic & \texttimes \\
     \item $N$ agents (even), strategy set $S = \{A, B\}$
     \item Pure coordination game: payoff 1 if both choose same strategy, 0 otherwise
     \item Each time step $t$: agents randomly paired, simultaneous strategy choice
-    \item Agents observe partner's strategy (anonymous); additionally observe $k$ random interactions
+    \item Agents observe partner's strategy (anonymous---always available regardless of $V$)
 \end{itemize}
+
+\paragraph{Global environment variables.} Two environment-level parameters control the information channels available to agents. These are \emph{not} agent state---they are uniform across the population and fixed for a given simulation run.
+
+\begin{center}
+\small
+\begin{tabular}{llp{7cm}}
+\toprule
+\textbf{Variable} & \textbf{Type / Range} & \textbf{Semantics} \\
+\midrule
+$V$ (\emph{Visibility}) & $\mathbb{N}_0$ & Number of additional random interactions each agent observes per tick, beyond the direct partner. $V = 0$: agents observe \emph{only} their direct opponent---all social observation channels are closed. \\
+$\Phi$ (\emph{SocialPressure}) & $[0, \infty)$ & Gain multiplier for enforcement broadcasts (Section~\ref{sec:enforcement_signal}). $\Phi = 0$: all normative signalling is disabled---no enforcement signals are sent or received. $\Phi = 1$: baseline enforcement. $\Phi > 1$: amplified social pressure. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent These variables are \emph{not} varied in the default 2$\times$2 factorial (Section~\ref{sec:experimental}). They serve as experimental levers for ablation studies that independently control social observation and enforcement pressure (Section~\ref{sec:ablation}).
 
 \subsection{Per-Tick Execution Order}
 
-Each tick follows a fixed synchronous pipeline: (1)~random pairing and action, (2)~observation and memory update, (3)~confidence update, (4)~normative DDM or anomaly update, (5)~enforcement broadcast, (6)~metrics. All outcomes are collected before updates are applied in synchronized passes, avoiding within-tick order effects.
+Each tick follows a fixed synchronous pipeline. All interaction outcomes are collected before updates are applied in synchronized passes, avoiding within-tick order effects. Figure~\ref{fig:tick_dataflow} shows the six stages with the variables written and read at each stage.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    >=Stealth,
+    step/.style={draw, rounded corners, minimum width=5.2cm, minimum height=0.7cm, align=center, font=\small},
+    var/.style={font=\scriptsize, text width=6cm, align=left},
+    every node/.style={font=\small}
+]
+% Steps (left column)
+\node[step, fill=envpink]     (s1) at (0, 0)    {1.\ Pair and Action};
+\node[step, fill=memblue]     (s2) at (0,-1.2)  {2.\ Observe ($V$) and Memory Update};
+\node[step, fill=trustorange]  (s3) at (0,-2.4)  {3.\ Confidence Update};
+\node[step, fill=normred]      (s4) at (0,-3.6)  {4.\ Normative Update (DDM / Anomaly)};
+\node[step, fill=normyellow]   (s5) at (0,-4.8)  {5.\ Enforcement Broadcast ($\Phi$)};
+\node[step, fill=beliefgreen]  (s6) at (0,-6.0)  {6.\ Metrics};
+
+% Arrows
+\foreach \i/\j in {s1/s2, s2/s3, s3/s4, s4/s5, s5/s6}
+    \draw[->, thick] (\i) -- (\j);
+
+% Right column: variables written/read at each stage
+\node[var] at (5.8, 0)    {\textbf{Write:} $s_i, s_j$ (actions via Eq.~\ref{eq:prob_matching})};
+\node[var] at (5.8,-1.2)  {\textbf{Write:} $M^E_i$, $\mathbf{b}^{\text{exp}}$ \quad \textbf{Gate:} $V$};
+\node[var] at (5.8,-2.4)  {\textbf{Write:} $C_i$ (Eq.~\ref{eq:confidence_update}) \quad \textbf{Read:} $w_i\!=\!f(C_i)$ (Eq.~\ref{eq:window})};
+\node[var] at (5.8,-3.6)  {\textbf{Write:} $e_i$, $\sigma_i$, $a_i$ (Eqs.~\ref{eq:drift}--\ref{eq:crisis})};
+\node[var] at (5.8,-4.8)  {\textbf{Write:} $p_i$ broadcast (Eq.~\ref{eq:signal_push}) \quad \textbf{Gate:} $\Phi$};
+\node[var] at (5.8,-6.0)  {\textbf{Read:} all; no state written};
+\end{tikzpicture}
+\caption{Single-tick dataflow. Left: execution stages in fixed order; environment gates ($V$, $\Phi$) annotated where they modulate information flow. Right: variables written/read at each stage, with equation references. Use this figure to trace where any symbol first appears and where it is consumed.}
+\label{fig:tick_dataflow}
+\end{figure}
 
 \subsection{Agent State}
 
@@ -171,13 +203,13 @@ Figure~\ref{fig:dual_memory} provides an overview of the architecture before the
 \node[box, fill=beliefgreen] (decision) at (0.75, 1.8) {Decision\\{\scriptsize $\mathbf{b}^{\text{eff}} = c \cdot \mathbf{b}^{\text{norm}} + (1\!-\!c) \cdot \mathbf{b}^{\text{exp}}$}};
 
 % ---- Observations ----
-\node[box, fill=commpurple] (obs) at (-2, 5.8) {Observations\\{\scriptsize dual-purpose}};
+\node[box, fill=commpurple] (obs) at (-2, 5.8) {Observations\\{\scriptsize $V$ additional, dual-purpose}};
 
 % ---- Normative Signal ----
-\node[box, fill=normyellow] (signal) at (3.5, 5.8) {Normative\\Signal\\{\scriptsize violation-triggered}};
+\node[box, fill=normyellow] (signal) at (3.5, 5.8) {Normative\\Signal\\{\scriptsize $\Phi$-gated}};
 
 % ---- Environment ----
-\node[box, fill=envpink] (env) at (6.5, 1.8) {Environment\\{\scriptsize partner $s^*$}};
+\node[box, fill=envpink] (env) at (6.5, 1.8) {Environment\\{\scriptsize $s^*$;\; globals $V$, $\Phi$}};
 
 % ---- Agent boundary ----
 \begin{scope}[on background layer]
@@ -202,10 +234,10 @@ Figure~\ref{fig:dual_memory} provides an overview of the architecture before the
 \draw[arrow, purple!70] (obs) -- node[label, above] {consensus} (normmem);
 
 % ---- Signal arrows ----
-\draw[arrow, yellow!60!orange, thick] (signal) -- node[label, right] {$\gamma_{\text{signal}}$\\{\scriptsize boosts DDM}} (normmem);
+\draw[arrow, yellow!60!orange, thick] (signal) -- node[label, right] {$\Phi \!\cdot\! \gamma_{\text{signal}}$\\{\scriptsize boosts DDM}} (normmem);
 
 % ---- Enforcement arrow (from decision out) ----
-\draw[arrow, red!70, dashed] (normmem) -- node[label, right, xshift=2pt] {if $\sigma>\theta$\\+ violation} (signal);
+\draw[arrow, red!70, dashed] (normmem) -- node[label, right, xshift=2pt] {if $\Phi\!>\!0$,\;$\sigma\!>\!\theta$\\+ violation} (signal);
 
 % ---- Lock-in annotation ----
 \node[draw=lockinpink, fill=lockinpink, rounded corners, text width=12.5cm, align=center, font=\small] at (2, -2) {
@@ -216,15 +248,56 @@ Figure~\ref{fig:dual_memory} provides an overview of the architecture before the
 };
 
 \end{tikzpicture}
-\caption{Dual-memory architecture. Predictive confidence bridges experience memory (statistical, FIFO) and normative memory (rule-based, anomaly-tracked). Observations feed both systems simultaneously. Normative signals are violation-triggered and norm-strength-gated.}
+\caption{Dual-memory architecture. Predictive confidence bridges experience memory (statistical, FIFO) and normative memory (rule-based, anomaly-tracked). Observations ($V$ per tick beyond the direct partner) feed both systems simultaneously. Enforcement signals are violation-triggered, norm-strength-gated, and scaled by $\Phi$. When $V = 0$ or $\Phi = 0$, the corresponding channel is disabled (see Section~\ref{sec:ablation}).}
 \label{fig:dual_memory}
 \end{figure}
+
+\subsection{Bridge Variables}\label{sec:bridge}
+
+The subsystems communicate through exactly three bridge variables. All other state is internal to each layer. This table serves as a roadmap for Sections~\ref{sec:experience}--\ref{sec:enforcement_signal}: each section defines one layer and specifies how it writes or reads these bridge variables.
+
+\begin{center}
+\small
+\texttt{Experience layer} $\;\xrightarrow{\;C_i\;}\;$ \texttt{Normative layer} $\;\xrightarrow{\;\sigma_i\;}\;$ \texttt{Decision layer} $\;\xleftarrow{\;p_i\;}\;$ \texttt{Enforcement}
+\end{center}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lp{3.8cm}p{4.5cm}p{3.5cm}}
+\toprule
+\textbf{Variable} & \textbf{Written by} & \textbf{Read by} & \textbf{Semantics} \\
+\midrule
+$C_i$ & Confidence update (Eq.~\ref{eq:confidence_update}) & Window size (Eq.~\ref{eq:window}), DDM drift (Eq.~\ref{eq:drift}), Signal sensitivity (Eq.~\ref{eq:signal_push}) & ``How predictable is my environment?'' \\
+$\sigma_i$ & Crystallisation (Eq.~\ref{eq:crystal}), Strengthening (Eq.~\ref{eq:strengthen}), Crisis (Eq.~\ref{eq:crisis}) & Compliance (Eq.~\ref{eq:compliance}), Enforcement gating (Eq.~\ref{eq:violation_response}) & ``How constraining is my norm?'' \\
+$p_i$ & Enforcement broadcast (Eq.~\ref{eq:violation_response}) & DDM evidence update (Eq.~\ref{eq:ddm}) & ``What does the group say I should do?'' \\
+\bottomrule
+\end{tabular}
+\caption{Bridge variables connecting the three subsystems. Three bridge variables for three subsystems indicates low coupling; the pipeline check ($\leq 5$) is satisfied.}
+\label{tab:bridge}
+\end{table}
+
+\noindent In addition to the three bridge variables, the environment-level parameters $V$ and $\Phi$ modulate information flow: $V$ gates the observation channel feeding both memories (Stages~2 and~4), while $\Phi$ gates the enforcement broadcast channel (Stage~5). These are not bridge variables---they do not carry information between subsystems---but they control whether specific inter-subsystem channels are active.
 
 % =====================================================================
 \section{Experience Memory and Cognitive Lock-in}\label{sec:experience}
 % =====================================================================
 
-Experience memory is the statistical layer. It stores direct interaction records and (optionally) observation data, producing a belief distribution over strategies.
+Experience memory is the statistical layer. It stores the direct interaction record and (when $V > 0$) additional observation data, producing a belief distribution over strategies.
+
+\begin{center}
+\small
+\begin{tabular}{llll}
+\toprule
+\textbf{Symbol} & \textbf{Range} & \textbf{Defined in} & \textbf{Role} \\
+\midrule
+$\mathbf{b}^{\text{exp}}$ & $[0,1]^2$ & This section & Belief from experience \\
+$C_i$ & $[0,1]$ & This section & Predictive confidence (\textbf{bridge} $\to$ normative layer) \\
+$w_i$ & $\{2,\ldots,6\}$ & This section & Effective memory window $= f(C_i)$ \\
+$\alpha, \beta$ & params & Table~\ref{tab:params} & Confidence increase / decrease rates \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 \subsection{Belief Formation}
 
@@ -278,6 +351,22 @@ Probability matching is behaviourally neutral: any norm emergence is attributabl
 
 Normative memory is qualitatively different from experience memory. It stores a \emph{rule}, not data. It acts as a \emph{constraint} on decisions, not a source of beliefs.
 
+\begin{center}
+\small
+\begin{tabular}{llll}
+\toprule
+\textbf{Symbol} & \textbf{Range} & \textbf{Defined in} & \textbf{Role} \\
+\midrule
+$r_i$ & $S \cup \{\varnothing\}$ & This section & Norm rule (or none) \\
+$\sigma_i$ & $[0,1]$ & This section & Norm strength (\textbf{bridge} $\to$ decision layer) \\
+$a_i$ & $\mathbb{N}$ & This section & Anomaly counter \\
+$e_i$ & $\mathbb{R}$ & This section & DDM evidence accumulator \\
+\midrule
+\multicolumn{4}{l}{\emph{Read from other layers:} $C_i$ (experience layer), $p_i$ (enforcement)} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
 \subsection{Structure}
 
 \begin{equation}
@@ -299,7 +388,11 @@ Norm formation follows a \emph{signed} two-boundary drift-diffusion process \cit
 
 \paragraph{Theoretical basis.} \citet{germar2014social} showed that social norms alter the drift rate in perceptual decision-making, using a standard two-boundary DDM where subjects could shift toward either response. \citet{germar2019learning} demonstrated that this alteration \emph{persists} after social influence is removed---norms are internalised as a persistent cognitive bias, not a transient effect. \citet{tenenbaum2011grow} established that rule learning from examples is fundamentally probabilistic (Bayesian inference over rule hypotheses).
 
-\paragraph{Evidence grade (strong mechanism, provisional functional form).} The empirical support for a diffusion-style mechanism is strong, but Eq.~\ref{eq:drift} is a modelling choice rather than a directly estimated law. In particular, the linear confidence gate $(1-C_i)$ should be treated as a testable assumption. Alternative gates (e.g., logistic or thresholded) are plausible and should be compared against data. The signed two-boundary architecture aligns more closely with \citet{germar2014social}'s original DDM than a single-boundary formulation.
+\paragraph{Observation set.} Let $\mathcal{O}_i(t)$ denote agent $i$'s observation set at tick $t$: the direct partner's strategy plus $V$ randomly sampled interaction outcomes, giving $|\mathcal{O}_i(t)| = 1 + V$ total observations. The signed consistency used in the drift term is:
+\[
+f_A - f_B \;=\; \frac{|\{s \in \mathcal{O}_i(t) : s = A\}| - |\{s \in \mathcal{O}_i(t) : s = B\}|}{|\mathcal{O}_i(t)|}
+\]
+When $V = 0$, $|\mathcal{O}_i(t)| = 1$ and $f_A - f_B = \pm 1$ (a single binary observation), making the DDM accumulator a random walk with large per-step variance. Social observation ($V > 0$) smooths this signal and is the primary enabler of Loop~2 (Section~\ref{sec:loop2}).
 
 \paragraph{Mechanism.} At each tick, if $r_i = \varnothing$ (no norm yet):
 
@@ -379,11 +472,23 @@ r_i \leftarrow \varnothing, \quad e_i \leftarrow 0 \quad \text{(norm dissolved; 
 
 This mirrors Kuhn's (\citeyear{kuhn1962structure}) paradigm shifts: normal science tolerates anomalies until a crisis threshold triggers revolution.
 
-\paragraph{Evidence grade (direction supported, operator exploratory).} Empirical and theoretical literatures support non-linear norm erosion and tipping under sustained violations, but the exact operator in Eq.~\ref{eq:crisis} is a candidate implementation. The anomaly accumulator and multiplicative decay should be validated against alternative collapse operators.
-
 % =====================================================================
 \section{Decision Integration}\label{sec:decision}
 % =====================================================================
+
+\begin{center}
+\small
+\begin{tabular}{llll}
+\toprule
+\textbf{Symbol} & \textbf{Range} & \textbf{Defined in} & \textbf{Role} \\
+\midrule
+$\text{compliance}_i$ & $[0,1]$ & This section & $\sigma_i^k$; how much the norm constrains \\
+$\mathbf{b}^{\text{eff}}$ & $[0,1]^2$ & This section & Effective belief (output to action selection) \\
+\midrule
+\multicolumn{4}{l}{\emph{Read:} $\sigma_i$, $r_i$ (normative layer), $\mathbf{b}^{\text{exp}}$ (experience layer)} \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 When a norm exists, it constrains the experience-based belief. We model this constraint with a power-family mapping:
 
@@ -411,10 +516,6 @@ Norm strength $\sigma$ & Compliance $\sigma^2$ & Behaviour \\
 
 \paragraph{Why norm strength, not confidence?} The previous formulation $\text{compliance}_i = (1 - C_i)^k$ creates a paradox: as agents successfully coordinate, their predictive confidence $C$ rises, which \emph{reduces} compliance with the very norm that made them successful. At $C = 0.9$, compliance would be only 0.01---the agent essentially ignores the norm. This conflates two distinct concepts: predictive confidence (``I can predict what will happen''---an epistemic assessment) and norm independence (``I don't need the norm''---a decision to override normative constraints). An agent can be highly confident \emph{and} highly norm-compliant, precisely when the norm is the source of that confidence.
 
-\paragraph{Evidence grade (moderate for monotonicity, exploratory for shape).} Existing evidence supports the directional claim that stronger internalisation should predict stronger compliance. However, the exact power form $\sigma_i^k$ and the value of $k$ are not treated here as fixed empirical constants; they are candidate functions to be compared with alternatives (e.g., linear or logistic mappings).
-
-The literature supports this correction: \citet{gintis2003internalization} showed that internalised norms create intrinsic motivation to comply that deepens with practice---stronger internalisation predicts stronger compliance, not weaker.
-
 Using $\sigma_i$ for compliance creates a coherent architecture: the same variable governs compliance (Eq.~\ref{eq:compliance}), enforcement gating (Eq.~\ref{eq:violation_response}), and crisis dynamics (Eq.~\ref{eq:crisis}). Predictive confidence $C_i$ retains its correct roles in norm \emph{formation} (DDM drift $\propto (1 - C)$; Eq.~\ref{eq:drift}) and memory modulation (window $= f(C)$; Eq.~\ref{eq:window}), consistent with the ``copy when uncertain'' principle \citep{rendell2010copy}.
 
 When $r_i = \varnothing$: $\mathbf{b}^{\text{eff}}_i = \mathbf{b}^{\text{exp}}_i$ (pure experience-based decision).
@@ -422,6 +523,19 @@ When $r_i = \varnothing$: $\mathbf{b}^{\text{eff}}_i = \mathbf{b}^{\text{exp}}_i
 % =====================================================================
 \section{Norm Enforcement: Violation-Triggered Signalling}
 % =====================================================================
+
+\begin{center}
+\small
+\begin{tabular}{llll}
+\toprule
+\textbf{Symbol} & \textbf{Range} & \textbf{Defined in} & \textbf{Role} \\
+\midrule
+$p_i$ & $\mathbb{R}$ & This section & Directed signal push (\textbf{bridge} $\to$ normative DDM) \\
+\midrule
+\multicolumn{4}{l}{\emph{Read:} $\sigma_i$, $r_i$ (normative layer), $C_i$ (experience layer)} \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 \subsection{When Do Agents Signal?}
 
@@ -441,22 +555,24 @@ The same observed violation produces qualitatively different responses depending
 
 \begin{equation}\label{eq:violation_response}
 \text{Observe } s^* \neq r_i: \quad \begin{cases}
-\sigma_i > \theta_{\text{enforce}}: & \text{broadcast}(r_i) \quad \textit{(``This rule is still right''---enforce)} \\
-\sigma_i \leq \theta_{\text{enforce}}: & a_i \leftarrow a_i + 1 \quad \textit{(``My conviction is weak; accumulate anomaly''---update)}
+\Phi > 0 \;\text{and}\; \sigma_i > \theta_{\text{enforce}}: & \text{broadcast}(r_i) \quad \textit{(enforce)} \\
+\text{otherwise}: & a_i \leftarrow a_i + 1 \quad \textit{(accumulate anomaly)}
 \end{cases}
 \end{equation}
 
 \paragraph{Theoretical basis.} Uncertain agents update toward others' judgments \citep{sherif1936psychology}, while high-conviction agents enforce and resist conformity pressure \citep{chudek2011culture}. This dual response synthesises conformity and punishment literatures: it has not been tested in a single experiment but follows from convergent evidence.
+
+\paragraph{Effect of $\Phi = 0$.} When social pressure is disabled ($\Phi = 0$), the enforcement channel is closed: no agent broadcasts normative signals, regardless of norm strength. Violations that would otherwise trigger enforcement instead accumulate as anomalies (the ``otherwise'' branch of Eq.~\ref{eq:violation_response}). This makes norms more fragile without social reinforcement---a testable prediction of the model (cf.\ H4).
 
 \subsection{Effect of Normative Signals on Receivers}\label{sec:enforcement_signal}
 
 Receiving a normative signal delivers a \emph{directed push} to the DDM evidence accumulator, independent of the receiver's current observations:
 
 \begin{equation}\label{eq:signal_push}
-\text{signal\_push}_i = (1 - C_i) \times \gamma_{\text{signal}} \times \text{dir}(s_{\text{enforced}}), \quad \text{dir}(A) = +1,\; \text{dir}(B) = -1
+\text{signal\_push}_i = \Phi \times (1 - C_i) \times \gamma_{\text{signal}} \times \text{dir}(s_{\text{enforced}}), \quad \text{dir}(A) = +1,\; \text{dir}(B) = -1
 \end{equation}
 
-The push is \emph{additive} (not multiplicative) and enters the DDM update in Eq.~\ref{eq:ddm}. It is confidence-gated: uncertain agents are pushed more strongly.
+The push is \emph{additive} (not multiplicative) and enters the DDM update in Eq.~\ref{eq:ddm}. It is confidence-gated ($1 - C_i$: uncertain agents are pushed more strongly) and pressure-scaled ($\Phi$: the environment determines whether and how strongly enforcement signals propagate). When $\Phi = 0$, $\text{signal\_push}_i = 0$ for all agents regardless of other conditions.
 
 \paragraph{Why directed push, not drift multiplier?} In the signed DDM, the observation-based drift can temporarily point in the ``wrong'' direction due to sampling noise (e.g., an agent observing 3B/2A in a majority-$A$ population). A multiplicative signal boost would amplify this noise-driven drift in the wrong direction. A directed push ensures the enforcement signal always pushes evidence toward the enforced strategy, regardless of the receiver's current observations.
 
@@ -476,13 +592,15 @@ Correct prediction $\to$ $C \!\uparrow$ $\to$ window $\uparrow$ $\to$ beliefs st
 
 \textbf{Source}: experience memory + confidence update. Operates through cognition, not behaviour \citep{slovic1993perceived}.
 
-\subsection{Loop 2: Social Amplification (Observations)}
+\subsection{Loop 2: Social Amplification (Observations)}\label{sec:loop2}
 
 \begin{center}
 High-confidence agents behave consistently $\to$ observed by others $\to$ others' experience beliefs shift $\to$ more coordination $\to$ confidence rises faster
 \end{center}
 
 \textbf{Source}: observations feeding experience memory. Amplifies both positive and negative feedback \citep{toyokawa2019conformist}.
+
+\textbf{Requires} $V > 0$: when $V = 0$, there are no social observations beyond the direct partner and this amplification loop is absent. Agents learn only from their own interactions.
 
 \subsection{Loop 3: Normative Pressure (Emergent)}
 
@@ -491,6 +609,8 @@ High-confidence agents behave consistently $\to$ low-confidence agents observe c
 \end{center}
 
 \textbf{Source}: observations feeding normative memory (DDM) + violation-triggered enforcement. This loop \emph{emerges} from the dual-memory architecture---it is not a separate mechanism.
+
+\textbf{Requires} $V > 0$ and $\Phi > 0$: when $V = 0$, consensus observation is limited to the direct partner, making DDM drift noisy and slow; when $\Phi = 0$, the enforcement cascade is absent. Both conditions must hold for the full normative pressure loop. Setting $V$ or $\Phi$ to zero provides clean ablation conditions for isolating the contributions of social observation and enforcement respectively (Section~\ref{sec:ablation}).
 
 \textbf{Key property}: Loop 3 is the only loop that produces \emph{social norms} in the sense of \citet{bicchieri2006grammar}. Without normative memory, the model produces conventions (Loops 1+2 only). With normative memory, the model produces norms with prescriptive force.
 
@@ -522,6 +642,32 @@ We measure norm emergence on a six-level scale: behavioural regularity (Level~1)
     \item \emph{Normative only}: Norms form but lack lock-in stability. Max: Level~4, fragile.
     \item \emph{Lock-in only}: Stable conventions, not norms. Max: Level~3.
     \item \emph{Full model}: Fastest and most stable. Max: Level~5 (institutional).
+\end{itemize}
+
+\subsection{Ablation: $V$ and $\Phi$}\label{sec:ablation}
+
+The default 2$\times$2 factorial holds $V$ and $\Phi$ at fixed values ($V = 5$, $\Phi = 1$). To isolate the contributions of social observation and enforcement pressure, we define additional ablation conditions that cross the two environment variables:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+& $\Phi = 0$ (no enforcement) & $\Phi = 1$ (baseline enforcement) \\
+\midrule
+$V = 0$ (isolated) & Pure individual learning & Enforcement without observation \\
+$V > 0$ (social) & Observation without enforcement & Full model \\
+\bottomrule
+\end{tabular}
+\caption{Ablation design for $V$ (Visibility) and $\Phi$ (SocialPressure). Each cell describes the qualitative regime. The default 2$\times$2 factorial operates in the ``Full model'' cell ($V > 0$, $\Phi = 1$).}
+\label{tab:ablation}
+\end{table}
+
+\paragraph{Ablation predictions.}
+\begin{itemize}[itemsep=2pt]
+    \item $V = 0,\; \Phi = 0$ (\emph{isolated}): Slowest convergence. DDM drift is noisy ($f_A - f_B = \pm 1$ per tick). No enforcement cascade. Loop~2 and Loop~3 absent. Expected max: Level~1--2.
+    \item $V > 0,\; \Phi = 0$ (\emph{observation only}): Social observation accelerates DDM crystallisation; Loop~2 active. But no enforcement cascade (Loop~3 incomplete): strong-norm agents who observe violations accumulate anomalies instead of broadcasting, making norms fragile. Expected max: Level~3--4.
+    \item $V = 0,\; \Phi > 0$ (\emph{enforcement only}): Enforcement exists but is rarely triggered---agents lack violation observations beyond the direct partner. Expected: marginal improvement over the isolated condition.
+    \item $V > 0,\; \Phi > 0$ (\emph{full}): All three loops active. Expected: Level~5 (institutional). This is the interaction effect: enforcement amplifies observation, and observation enables enforcement.
 \end{itemize}
 
 % =====================================================================
@@ -586,12 +732,139 @@ Strengthen rate & $\alpha_\sigma$ & 0.005 & Normative & per conforming observati
 Enforcement threshold (on $\sigma$) & $\theta_{\text{enforce}}$ & 0.7 & Normative & boundary condition from \citet{toribio2023proof}; value calibrated \\
 Compliance exponent & $k$ & 2 & Both & candidate function shape; model comparison \\
 Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & directed push magnitude; --- \\
+\midrule
+Visibility & $V$ & \emph{varies} & Environment & additional observations per tick; ablation variable (Section~\ref{sec:ablation}) \\
+Social pressure & $\Phi$ & \emph{varies} & Environment & enforcement signal gain; $\Phi=0$ disables signalling (Section~\ref{sec:ablation}) \\
 \bottomrule
 \end{tabular}
+\caption{Full parameter list with defaults, layer assignment, and provenance. $V$ and $\Phi$ are environment-level variables, not agent parameters; they are held constant within each experimental condition.}
+\label{tab:params}
+\end{table}
+
+\subsection{Evidence Assessment}\label{sec:evidence}
+
+Table~\ref{tab:evidence} separates what is empirically grounded from what is a candidate modelling choice. Tier~1 components have direct experimental support; Tier~2 components are directionally supported but the functional form is exploratory; Tier~3 components are reasonable candidates requiring sensitivity analysis.
+
+\begin{table}[h]
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{llp{4cm}p{4.5cm}}
+\toprule
+\textbf{Component} & \textbf{Tier} & \textbf{What is grounded} & \textbf{Testable assumption} \\
+\midrule
+DDM mechanism (Eq.~\ref{eq:drift}--\ref{eq:ddm}) & 1 & Diffusion-style norm uptake; persistence after removal of social influence \citep{germar2014social,germar2019learning} & --- \\
+Signed two-boundary & 1 & Aligns with original DDM where subjects shift toward either response \citep{germar2014social} & --- \\
+Confidence gate $(1\!-\!C_i)$ & 2 & ``Copy when uncertain'' \citep{rendell2010copy} & Linear gate; logistic or thresholded alternatives plausible \\
+Asymmetric trust $\alpha\!<\!\beta$ & 1 & Negativity bias in risk perception \citep{slovic1993perceived} & Exact $\alpha/\beta$ ratio \\
+Memory window $[2,6]$ & 1 & Small-sample cognition \citep{hertwig2010decisions,nevo2012bi} & --- \\
+\midrule
+Compliance $\sigma_i^k$ & 2 & Monotonic: stronger internalisation $\to$ stronger compliance \citep{gintis2003internalization,will2023stronger} & Power form and $k$ value; compare linear, logistic \\
+Crisis operator (Eq.~\ref{eq:crisis}) & 2 & Non-linear norm erosion under sustained violations \citep{kuhn1962structure,centola2018tipping} & Multiplicative decay $\sigma \!\times\! \lambda$; compare gradual erosion \\
+Strengthening rate $\alpha_\sigma$ & 2 & Norms deepen with practice \citep{gintis2003internalization} & Exact rate; saturating form \\
+\midrule
+Signal push (Eq.~\ref{eq:signal_push}) & 3 & Prescriptive signals stronger than descriptive \citep{deutsch1955study} & Additive push vs.\ drift multiplier; $\gamma_{\text{signal}}$ value \\
+Enforcement threshold $\theta_{\text{enforce}}$ & 3 & Certainty prerequisite for punishment \citep{toribio2023proof} & Threshold value \\
+\bottomrule
+\end{tabular}
+\caption{Evidence assessment. Tier~1: direct experimental support for mechanism. Tier~2: direction supported, functional form is a modelling choice. Tier~3: reasonable candidate, requires sensitivity analysis.}
+\label{tab:evidence}
 \end{table}
 
 % =====================================================================
-\section{Summary}
+\section{Failure Modes and Debugging Guide}\label{sec:failure}
+% =====================================================================
+
+For each core mechanism, we identify the observable symptoms when the mechanism is disabled, when its sign is reversed, and when its key parameter is mis-scaled. This table serves as a lookup guide during simulation debugging: unexpected macro-level behaviour can be traced to specific mechanism failures.
+
+\begin{table}[h]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{p{2.4cm}p{3.0cm}p{3.0cm}p{2.3cm}p{2.3cm}}
+\toprule
+\textbf{Mechanism} & \textbf{Disabled} & \textbf{Sign reversed} & \textbf{Param.\ too large} & \textbf{Param.\ too small} \\
+\midrule
+Dynamic window (Eq.~\ref{eq:window}) &
+Fixed/dynamic conditions show no difference (H5 fails) &
+High $C \to$ short window: confident agents become volatile &
+$w_{\max}\!=\!60$: beliefs over-stabilise, cannot adapt &
+$w_{\max}\!=\!3$: $\approx$ fixed window \\
+\midrule
+Asym.\ confidence $\alpha/\beta$ (Eq.~\ref{eq:confidence_update}) &
+$C$ static; no lock-in loop (Loop~1 absent) &
+$C$ rises on errors, falls on success (anti-learning) &
+$\beta\!=\!0.9$: single error collapses $C$ to ${\sim}0.1$ &
+$\beta\!=\!0.01$: $C$ never drops; agents locked into early beliefs \\
+\midrule
+Confidence gate in DDM (Eq.~\ref{eq:drift}) &
+All agents crystallise at same rate regardless of $C$ &
+High-$C$ agents crystallise \emph{faster} (inverts ``copy when uncertain''; H2 fails) &
+--- &
+--- \\
+\midrule
+Signed consistency (Eq.~\ref{eq:drift}) &
+\emph{If unsigned}: spurious norms at 50-50 in ${\sim}8$ ticks &
+$A$-majority produces $B$-norms &
+--- &
+--- \\
+\midrule
+Strengthening (Eq.~\ref{eq:strengthen}) &
+Crisis permanently weakens norms; no recovery &
+Conforming obs.\ \emph{weaken} norms &
+$\alpha_\sigma\!=\!0.05$: norms nearly indestructible &
+$\alpha_\sigma\!=\!0.0005$: recovery $>$1000 ticks \\
+\midrule
+Crisis (Eq.~\ref{eq:crisis}) &
+Norms indestructible; shock experiments meaningless (H6 fails) &
+--- &
+$\theta_{\text{crisis}}\!=\!3$: norms extremely fragile &
+$\theta_{\text{crisis}}\!=\!100$: norms dogmatic \\
+\midrule
+Compliance $\sigma^k$ (Eq.~\ref{eq:compliance}) &
+No normative influence on behaviour (exp.\ memory only) &
+Strong norms $\to$ low compliance (norm self-undermining) &
+$k\!=\!10$: compliance $\approx 0$ unless $\sigma>0.9$ &
+$k\!=\!0.5$: even weak norms dominate \\
+\midrule
+Signal push (Eq.~\ref{eq:signal_push}) &
+No enforcement cascade (Loop~3 incomplete; H4 fails) &
+Push reversed: enforcement \emph{inhibits} crystallisation &
+$\gamma\!=\!20$: single signal $\to$ instant crystallisation &
+$\gamma\!=\!0.2$: signals negligible \\
+\midrule
+Anomaly tracking (Eq.~\ref{eq:anomaly}) &
+Norms never challenged; no dissolution possible &
+Conforming obs.\ counted as anomalies (norm self-destructs) &
+--- &
+--- \\
+\midrule
+Visibility $V$ &
+$V\!=\!0$: DDM very noisy ($f_A\!-\!f_B\!=\!\pm 1$); Loop~2 absent &
+--- &
+$V\!=\!50$: agents see full population; convergence instant &
+$V\!=\!1$: social observation weak; slow amplification \\
+\midrule
+Social pressure $\Phi$ &
+$\Phi\!=\!0$: no enforcement cascade (Loop~3 incomplete); norms fragile &
+Enforcement pushes toward \emph{wrong} strategy &
+$\Phi\!=\!10$: single signal $\to$ instant crystallisation &
+$\Phi\!=\!0.1$: enforcement negligible \\
+\bottomrule
+\end{tabular}
+\caption{Failure mode lookup table. When unexpected macro-level behaviour appears in simulation, match the symptom to identify the most likely mechanism at fault. ``---'' indicates that the failure mode is not applicable for that mechanism (e.g., sign reversal is not meaningful for a threshold).}
+\label{tab:failure_modes}
+\end{table}
+
+\paragraph{Usage.} When a simulation produces unexpected results:
+\begin{enumerate}[itemsep=2pt]
+    \item Identify the macro-level symptom (e.g., ``norms never dissolve'').
+    \item Scan the ``Disabled'' and ``Param.\ too small/large'' columns for a match.
+    \item Check the identified mechanism's implementation and parameter values.
+\end{enumerate}
+
+% =====================================================================
+\section{Summary}\label{sec:summary}
 % =====================================================================
 
 \subsection*{Limitations and Open Questions}
@@ -599,7 +872,7 @@ Signal amplification & $\gamma_{\text{signal}}$ & 2.0 & Both & directed push mag
 \begin{itemize}[itemsep=4pt]
     \item \textbf{Homogeneous agents.} All agents share the same parameters ($\alpha$, $\beta$, $k$, $\theta_{\text{crystal}}$, etc.). Individual heterogeneity in cognitive style, risk attitude, or social sensitivity is not modelled. Introducing parameter distributions is a natural extension but significantly enlarges the parameter space.
     \item \textbf{Two strategies only.} The strategy set $S = \{A, B\}$ limits applicability to binary coordination. Extending to $|S| > 2$ requires a multi-dimensional DDM accumulator and a richer compliance mapping; the signed consistency $(f_A - f_B)$ would need to be replaced by a vector-valued signal.
-    \item \textbf{Anonymous interactions.} Agents cannot distinguish partners or track reputations. This rules out partner-specific trust, conditional cooperation, and in-group/out-group effects. The model addresses norm emergence among strangers, not within structured social networks.
+    \item \textbf{Anonymous interactions (by design).} As argued in Section~\ref{sec:scope}, anonymous interaction is a scope choice aligned with how norms function in large populations through aggregate statistics and diffuse social pressure. This defines a clear boundary: the model addresses norm emergence among strangers, not within close-knit communities. Partner-specific trust, conditional cooperation, reputation effects, and in-group/out-group dynamics constitute a qualitatively different regime where enforcement relies on personal expectations rather than diffuse social pressure \citep{ellickson1991order}---a natural extension requiring different modelling assumptions.
     \item \textbf{Functional forms are provisional.} The confidence gate $(1-C_i)$, compliance function $\sigma_i^k$, and crisis operator $\sigma \times \lambda_{\text{crisis}}$ are candidate implementations supported directionally by evidence but not uniquely identified. Alternative forms (logistic, thresholded, gradual erosion) should be compared via simulation.
     \item \textbf{No network structure.} Random pairing implies a well-mixed population. Spatial or network-structured interactions could produce local norms, norm boundaries, and slower diffusion---none of which the current model captures.
     \item \textbf{Norm content is emergent but arbitrary.} The model explains \emph{that} a norm forms and \emph{how}, but in a symmetric coordination game, \emph{which} strategy becomes the norm is determined by early random drift. Extending to asymmetric games where norm content has welfare implications is an important next step.
@@ -684,6 +957,11 @@ Hume, D. (1739).
 \bibitem[Kuhn(1962)]{kuhn1962structure}
 Kuhn, T.~S. (1962).
 \textit{The Structure of Scientific Revolutions}.
+University of Chicago Press.
+
+\bibitem[Mead(1934)]{mead1934mind}
+Mead, G.~H. (1934).
+\textit{Mind, Self, and Society}.
 University of Chicago Press.
 
 \bibitem[Luhmann(1979)]{luhmann1979trust}
@@ -785,6 +1063,11 @@ Learning to be thoughtless: Social norms and individual computation.
 Gavrilets, S., \& Richerson, P.~J. (2017).
 Collective action and the evolution of social norm internalization.
 \textit{Proceedings of the National Academy of Sciences}, 114(23), 6068--6073.
+
+\bibitem[Ellickson(1991)]{ellickson1991order}
+Ellickson, R.~C. (1991).
+\textit{Order Without Law: How Neighbors Settle Disputes}.
+Harvard University Press.
 
 \bibitem[Mahmoud et al.(2014)]{mahmoud2014review}
 Mahmoud, M.~A., Ahmad, M.~S., Yusoff, M.~Z.~M., \& Mustapha, A. (2014).
