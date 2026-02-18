@@ -45,6 +45,7 @@
 
 | Parameter | Symbol | Default | Type | Constraint | Source |
 |-----------|--------|---------|------|------------|--------|
+| Enable normative memory | enable\_normative | False | bool | — | Gates entire normative subsystem. When False, Stages 4–5 are skipped and max norm level is 3. |
 | DDM noise (std dev) | σ\_noise | 0.1 | float | ≥ 0 | Germar 2014 |
 | Crystallisation threshold | θ\_crystal | 3.0 | float | > 0 | calibration |
 | Initial norm strength | σ₀ | 0.8 | float | (0, 1] | calibration |
@@ -74,11 +75,21 @@
 
 ## 2. Data Structures
 
-### 2.1 Strategy Encoding
+### 2.1 Strategy Encoding and RNG
 
 ```
 Strategy = int   # 0 = A, 1 = B
 ```
+
+**RNG ownership**: A single `numpy.random.RandomState(seed)` instance is created
+during initialisation and passed explicitly to every function that requires
+randomness. All pseudocode in this spec uses the bare name `rng` for brevity;
+in implementation, `rng` is always the same object, threaded through as a
+parameter (`rng` argument on `run_tick`, each `stage_*` function, and helpers
+like `map_predict` and `ddm_update`). This guarantees:
+- **Reproducibility**: identical seed → identical trajectory.
+- **No hidden state**: RNG is never module-global or thread-local.
+- **Parallelism-safe**: independent runs use independent RNG instances.
 
 ### 2.2 AgentState
 
@@ -121,12 +132,16 @@ class InteractionRecord:
 
 ### 2.4 TickState (transient, per-tick working data)
 
+All fields are initialised when `TickState()` is constructed. Stages populate
+them progressively; later stages may read fields written by earlier stages.
+
 ```python
 class TickState:
-    pairs: list[tuple[int, int]]          # N/2 pairs for this tick
-    interactions: list[InteractionRecord]  # Outcomes
-    observations: dict[int, list[Strategy]]  # agent_id → O_i(t), len = 1 + V
-    enforcement_intents: dict[int, int]    # enforcer_id → partner_id
+    pairs: list[tuple[int, int]] = []               # Set in Stage 1
+    interactions: list[InteractionRecord] = []       # Set in Stage 1
+    observations: dict[int, list[Strategy]] = {}     # Set in Stage 2
+    enforcement_intents: dict[int, int] = {}         # Set in Stage 4
+    num_enforcements: int = 0                        # Set in Stage 5
 ```
 
 ### 2.5 TickMetrics
@@ -151,7 +166,7 @@ class TickMetrics:
 ## 3. Initialization
 
 ```python
-def initialize(params) -> list[AgentState]:
+def initialize(params) -> tuple[list[AgentState], RandomState]:
     rng = RandomState(params.seed)
     agents = []
     for i in range(params.N):
@@ -168,7 +183,7 @@ def initialize(params) -> list[AgentState]:
         a.compliance = 0.0
         a.b_eff = [0.5, 0.5]
         agents.append(a)
-    return agents
+    return agents, rng    # rng is passed to run_tick and all stage functions
 ```
 
 **Invariants at t=0:**
@@ -181,8 +196,9 @@ def initialize(params) -> list[AgentState]:
 
 ## 4. Per-Tick Pipeline
 
-```
-function run_tick(t, agents, params) -> TickMetrics:
+```python
+def run_tick(t, agents, history, params) -> TickMetrics:
+    """Execute one tick. `history` is the list of TickMetrics from ticks 0..t-1."""
     ts = TickState()
 
     stage_1_pair_and_act(agents, ts, params)       # Write: actions, predictions
@@ -190,7 +206,7 @@ function run_tick(t, agents, params) -> TickMetrics:
     stage_3_confidence(agents, ts, params)           # Write: C, w
     stage_4_normative(agents, ts, params)            # Write: e/r/sigma/a; consume pending_signal
     stage_5_enforce(agents, ts, params)              # Write: pending_signal on receivers
-    metrics = stage_6_metrics(agents, ts, params)    # Read-only
+    metrics = stage_6_metrics(agents, ts, t, history, params)  # Read-only
 
     return metrics
 ```
@@ -485,8 +501,11 @@ def post_crystal_update(agent, agent_id, obs, ts, params):
             agent.a = 0
 
     # ── Record enforcement intent for Stage 5 ──
+    # Partner ID comes from the pair that produced obs[0].
     if enforcement_triggered:
-        ts.enforcement_intents[agent_id] = get_partner_id(agent_id, ts)
+        # Find partner from pairs list (each agent appears in exactly one pair)
+        partner_id = next(j for (a, b) in ts.pairs for (x, j) in [(a, b), (b, a)] if x == agent_id)
+        ts.enforcement_intents[agent_id] = partner_id
 
     # ── Consume wasted pending signal (DD-8) ──
     # Post-crystallised agents ignore incoming signals (DDM inactive)
@@ -551,10 +570,20 @@ signals are wasted (received by agents with inactive DDMs).
 
 **Purpose**: Compute per-tick metrics. Read-only (no state modification).
 
+`stage_6_metrics` receives the tick index `t` and cumulative `history` (list of all
+prior TickMetrics) from the caller `run_tick`. It uses `history` for norm detection
+(consecutive-tick checks) and convergence tracking.
+
 ```python
-def stage_6_metrics(agents, ts, params) -> TickMetrics:
+def stage_6_metrics(agents, ts, t, history, params) -> TickMetrics:
     N = params.N
-    actions = collect_all_actions(ts)  # list of Strategy for all agents this tick
+
+    # Extract each agent's action this tick from interaction records.
+    # Each InteractionRecord contains both agents' actions; build a full N-vector.
+    actions = [None] * N
+    for rec in ts.interactions:
+        actions[rec.i] = rec.action_i
+        actions[rec.j] = rec.action_j
 
     fraction_A = sum(1 for a in actions if a == 0) / N
     mean_C = sum(ag.C for ag in agents) / N
@@ -572,7 +601,16 @@ def stage_6_metrics(agents, ts, params) -> TickMetrics:
 
     # Norm detection (Section 5)
     norm_level = detect_norm_level(agents, fraction_A, belief_error,
-                                    belief_var, num_cryst, history)
+                                    belief_var, num_cryst, history, params)
+
+    # Convergence counter: how many consecutive ticks (including this one)
+    # the majority fraction has been ≥ convergence_threshold.
+    majority_frac = max(fraction_A, 1.0 - fraction_A)
+    if majority_frac >= params.convergence_threshold:
+        prev = history[-1].convergence_counter if len(history) > 0 else 0
+        conv_counter = prev + 1
+    else:
+        conv_counter = 0
 
     return TickMetrics(
         tick=t,
@@ -585,7 +623,7 @@ def stage_6_metrics(agents, ts, params) -> TickMetrics:
         norm_level=norm_level,
         belief_error=belief_error,
         belief_variance=belief_var,
-        convergence_counter=update_convergence_counter(fraction_A, params)
+        convergence_counter=conv_counter,
     )
 ```
 
@@ -597,6 +635,17 @@ Each level subsumes all lower levels. The norm level is the **highest** level wh
 conditions are currently met.
 
 ```python
+def count_consecutive_ticks(history, predicate) -> int:
+    """Count how many consecutive ticks at the END of history satisfy predicate.
+    Returns 0 if history is empty or the most recent tick fails the predicate."""
+    count = 0
+    for m in reversed(history):
+        if predicate(m):
+            count += 1
+        else:
+            break
+    return count
+
 def detect_norm_level(agents, fraction_A, belief_error, belief_var,
                        num_crystallised, history, params) -> int:
     N = params.N
@@ -683,7 +732,7 @@ the convergence window).
 
 | Case | Handling |
 |------|----------|
-| N is odd | Adjust to N−1 (drop one agent from pairing, still participates in observations) or reject input |
+| N is odd | **Reject at initialisation** with a clear error message. The caller must supply an even N. This avoids ambiguity about which agent sits out and whether unpaired agents update confidence. |
 | V ≥ N/2 | Cap at N/2 − 1 (can't observe more interactions than exist, excluding own) |
 | N = 2 | Only 1 pair; V observations = 0 (no other interactions) |
 | FIFO empty (t=0) | b\_exp = [0.5, 0.5] |
@@ -819,21 +868,43 @@ prevent stale-value bugs.
 
 ## 10. Testing Checklist
 
-These are minimal correctness checks. Each corresponds to a mechanism or hypothesis.
+### 10.1 Deterministic Correctness Tests (CI-runnable, single seed)
 
-| # | Test | Expected |
-|---|------|----------|
-| 1 | V=0, Φ=0, fixed memory: run 1000 ticks | Slow convergence; max Level 1 |
-| 2 | Dynamic memory vs. fixed: compare convergence speed | Dynamic faster |
-| 3 | DDM at 50-50: track crystallisation times | Mean ≈ θ²/σ\_noise² = 900; high variance |
-| 4 | DDM at 70-30: track crystallisation times | Mean ≈ θ / ((1-C) × 0.4) ≈ 11 ticks at C=0.3 |
-| 5 | Low-C agents crystallise before high-C (H2) | Negative correlation: C vs. crystallisation order |
-| 6 | Enforcement signal pushes DDM (H4) | Compare crystallisation speed with/without Φ |
-| 7 | Crisis after 10 anomalies: σ drops by ×0.3 | σ: 0.8 → 0.24 |
-| 8 | Two crises: norm dissolves | σ: 0.8 → 0.24 → 0.072 < 0.1 → dissolved |
-| 9 | Strengthening recovery | After crisis (σ=0.24), 100 conforming obs → σ ≈ 0.59 |
-| 10 | Partner-only enforcement | Enforce signal only to matched partner, not V observations |
-| 11 | Φ=0 blocks all enforcement | No pending\_signals written; norm fragile |
-| 12 | V=0: DDM noisy (f\_diff = ±1) | Crystallisation slow and unreliable |
-| 13 | Full model (dynamic, normative, V>0, Φ>0) | Reaches Level 5 |
-| 14 | Backward compatibility: no normative, fixed memory | Equivalent to V1 model |
+These verify mechanism logic with exact expected values. Each test constructs a
+controlled scenario (often a single agent or small population) and asserts a
+precise outcome. **No randomness in expected values** — either seed the RNG or
+test the deterministic path directly.
+
+| # | Test | Setup | Expected (exact) |
+|---|------|-------|-------------------|
+| D1 | Crisis σ decay | Agent with σ=0.8, a=10, θ\_crisis=10 | After crisis: σ = 0.24, a = 0, r unchanged |
+| D2 | Double crisis dissolves | Agent with σ=0.8; trigger 2 crises | After 1st: σ=0.24. After 2nd: σ=0.072 < σ\_min → r=None, e=0, σ=0, a=0 |
+| D3 | Strengthening recovery | Agent with σ=0.24; feed 100 conforming obs | σ\_new = 1 − (1−0.24)×(1−0.005)^100 ≈ 0.5938 |
+| D4 | Partner-only enforcement | V=3, Φ>0; partner conforms, V obs violate | No enforcement triggered (DD-6). Anomaly a += count(V violations) |
+| D5 | V obs violate, partner violates, enforce eligible | σ > θ\_enforce, Φ > 0 | Enforcement triggered for partner. Partner violation NOT counted as anomaly (DD-7). V violations counted as anomaly. |
+| D6 | Φ=0 blocks enforcement | Agent with σ=0.9 > θ\_enforce; partner violates | can\_enforce = False. Violation counted as anomaly. No pending\_signal written. |
+| D7 | Effective belief blending | r=0 (A), σ=0.8, k=2, b\_exp=[0.3, 0.7] | compliance = 0.64. b\_eff = [0.64×1.0 + 0.36×0.3, 0.64×0.0 + 0.36×0.7] = [0.748, 0.252] |
+| D8 | Window from confidence | C=0.0, w\_base=2, w\_max=6 | w=2 |
+| D9 | Window from confidence | C=1.0, w\_base=2, w\_max=6 | w=6 |
+| D10 | Confidence update correct | C=0.5, α=0.1 | C\_new = 0.5 + 0.1×0.5 = 0.55 |
+| D11 | Confidence update wrong | C=0.5, β=0.3 | C\_new = 0.5 × 0.7 = 0.35 |
+| D12 | Backward compat: no normative | enable\_normative=False, fixed memory | Stages 4–5 skipped. Agent state has r=None, σ=0, a=0 for all ticks. Max norm level = 3. |
+| D13 | Crystallisation direction | e = +3.1 ≥ θ\_crystal=3.0 | r = 0 (A). σ = σ₀. a = 0. |
+| D14 | Crystallisation direction | e = −3.1 | r = 1 (B). σ = σ₀. a = 0. |
+| D15 | Signal consumed by post-crystallised | Agent with r ≠ None receives pending\_signal | pending\_signal cleared in Stage 4. No DDM update. |
+
+### 10.2 Statistical Hypothesis Tests (require multiple trials)
+
+These validate emergent dynamics and model hypotheses. They require multiple
+seeded trials and statistical criteria. Run with `n_trials ≥ 30` unless noted.
+
+| # | Hypothesis | Protocol | Pass criterion |
+|---|------------|----------|----------------|
+| S1 | Dynamic memory accelerates convergence (H1) | Compare dynamic vs. fixed memory, N=100, 1000 ticks, 30 trials each | Mann-Whitney U test: dynamic convergence\_tick < fixed convergence\_tick, p < 0.05 |
+| S2 | DDM crystallisation time at 50-50 | Force b\_exp = [0.5, 0.5] constant; track crystallisation tick per agent, 100 agents × 30 trials | Mean crystallisation tick ∈ [600, 1200] (theoretical: θ²/σ\_noise² = 900). CV > 0.5 (high variance). |
+| S3 | DDM crystallisation time at 70-30 | Force b\_exp = [0.7, 0.3] constant, C = 0.3; track crystallisation tick | Mean crystallisation tick ∈ [5, 25] (theoretical: ≈11 at steady drift) |
+| S4 | Low-C agents crystallise first (H2) | Full model, N=100, 30 trials; record (C at crystallisation, crystallisation tick) | Spearman ρ(C, crystallisation\_tick) > 0 (positive: higher C → later crystallisation), p < 0.05 |
+| S5 | Enforcement accelerates crystallisation (H4) | Compare Φ=1 vs. Φ=0, V=5, N=100, 30 trials | Mean crystallisation tick with Φ=1 < without, Mann-Whitney p < 0.05 |
+| S6 | V=0 DDM is noisy | V=0, Φ=0, N=100, 30 trials; track crystallisation times | CV of crystallisation tick > 0.8 (high dispersion from f\_diff = ±1) |
+| S7 | Full model reaches Level 5 | Dynamic memory, normative, V=5, Φ=1.0, N=100, 2000 ticks, 30 trials | ≥ 80% of trials reach norm\_level = 5 |
+| S8 | No-normative ceiling is Level 3 | enable\_normative=False, dynamic memory, N=100, 1000 ticks, 30 trials | 0% of trials exceed norm\_level = 3 |
