@@ -85,8 +85,9 @@ Strategy = int   # 0 = A, 1 = B
 during initialisation and passed explicitly to every function that requires
 randomness. All pseudocode in this spec uses the bare name `rng` for brevity;
 in implementation, `rng` is always the same object, threaded through as a
-parameter (`rng` argument on `run_tick`, each `stage_*` function, and helpers
-like `map_predict` and `ddm_update`). This guarantees:
+parameter (`rng` argument on `run_tick` and every helper/stage that uses
+randomness, such as `stage_1_pair_and_act`, `stage_2_observe_and_memory`,
+`stage_4_normative`, `map_predict`, and `ddm_update`). This guarantees:
 - **Reproducibility**: identical seed → identical trajectory.
 - **No hidden state**: RNG is never module-global or thread-local.
 - **Parallelism-safe**: independent runs use independent RNG instances.
@@ -140,7 +141,7 @@ class TickState:
     pairs: list[tuple[int, int]] = []               # Set in Stage 1
     interactions: list[InteractionRecord] = []       # Set in Stage 1
     observations: dict[int, list[Strategy]] = {}     # Set in Stage 2
-    enforcement_intents: dict[int, int] = {}         # Set in Stage 4
+    enforcement_intents: dict[int, tuple[int, Strategy]] = {}  # enforcer_id -> (partner_id, enforced_strategy)
     num_enforcements: int = 0                        # Set in Stage 5
 ```
 
@@ -197,15 +198,18 @@ def initialize(params) -> tuple[list[AgentState], RandomState]:
 ## 4. Per-Tick Pipeline
 
 ```python
-def run_tick(t, agents, history, params) -> TickMetrics:
+def run_tick(t, agents, history, params, rng) -> TickMetrics:
     """Execute one tick. `history` is the list of TickMetrics from ticks 0..t-1."""
     ts = TickState()
 
-    stage_1_pair_and_act(agents, ts, params)       # Write: actions, predictions
-    stage_2_observe_and_memory(agents, ts, params)  # Write: fifo, b_exp, observations
+    stage_1_pair_and_act(agents, ts, params, rng)    # Write: actions, predictions
+    stage_2_observe_and_memory(agents, ts, params, rng)  # Write: fifo, b_exp, observations
     stage_3_confidence(agents, ts, params)           # Write: C, w
-    stage_4_normative(agents, ts, params)            # Write: e/r/sigma/a; consume pending_signal
-    stage_5_enforce(agents, ts, params)              # Write: pending_signal on receivers
+    if params.enable_normative:
+        stage_4_normative(agents, ts, params, rng)   # Write: e/r/sigma/a; consume pending_signal
+        stage_5_enforce(agents, ts, params)          # Write: pending_signal on receivers
+    else:
+        ts.num_enforcements = 0
     metrics = stage_6_metrics(agents, ts, t, history, params)  # Read-only
 
     return metrics
@@ -225,7 +229,7 @@ only read in Stage 4 of the **next** tick, so no within-tick conflict exists.
 **Purpose**: Form random pairs, compute effective beliefs, select actions, make predictions.
 
 ```python
-def stage_1_pair_and_act(agents, ts, params):
+def stage_1_pair_and_act(agents, ts, params, rng):
     # 1a. Form pairs via random permutation
     indices = rng.permutation(params.N)
     ts.pairs = [(indices[2*k], indices[2*k+1]) for k in range(params.N // 2)]
@@ -241,8 +245,8 @@ def stage_1_pair_and_act(agents, ts, params):
         action_j = 0 if rng.random() < agents[j].b_eff[0] else 1
 
         # 1d. MAP prediction (deterministic, tie-break random)
-        pred_i = map_predict(agents[i].b_eff)   # i predicts j's action
-        pred_j = map_predict(agents[j].b_eff)   # j predicts i's action
+        pred_i = map_predict(agents[i].b_eff, rng)   # i predicts j's action
+        pred_j = map_predict(agents[j].b_eff, rng)   # j predicts i's action
 
         # 1e. Record
         ts.interactions.append(InteractionRecord(
@@ -263,7 +267,7 @@ def compute_effective_belief(agent):
         agent.compliance = 0.0
         agent.b_eff = agent.b_exp[:]    # copy
 
-def map_predict(b_eff) -> Strategy:
+def map_predict(b_eff, rng) -> Strategy:
     if b_eff[0] > b_eff[1]:
         return 0    # predict A
     elif b_eff[1] > b_eff[0]:
@@ -285,7 +289,7 @@ def map_predict(b_eff) -> Strategy:
 recompute experience belief.
 
 ```python
-def stage_2_observe_and_memory(agents, ts, params):
+def stage_2_observe_and_memory(agents, ts, params, rng):
     # Build lookup: agent_id → (partner_id, partner_action)
     partner_map = {}
     for rec in ts.interactions:
@@ -394,13 +398,13 @@ or anomaly tracking / strengthening / crisis (post-crystallisation). Consume pen
 enforcement signals.
 
 ```python
-def stage_4_normative(agents, ts, params):
+def stage_4_normative(agents, ts, params, rng):
     for i in range(params.N):
         obs = ts.observations[i]  # O_i(t) from Stage 2
 
         if agents[i].r is None:
             # ── PRE-CRYSTALLISATION: DDM ──
-            ddm_update(agents[i], obs, params)
+            ddm_update(agents[i], obs, params, rng)
         else:
             # ── POST-CRYSTALLISATION: anomaly / strengthening / crisis ──
             post_crystal_update(agents[i], i, obs, ts, params)
@@ -409,7 +413,7 @@ def stage_4_normative(agents, ts, params):
 #### 4.4.1 Pre-Crystallisation: DDM Update
 
 ```python
-def ddm_update(agent, obs, params):
+def ddm_update(agent, obs, params, rng):
     # a) Signed consistency from full observation set
     n_A = sum(1 for s in obs if s == 0)
     n_B = len(obs) - n_A
@@ -505,7 +509,7 @@ def post_crystal_update(agent, agent_id, obs, ts, params):
     if enforcement_triggered:
         # Find partner from pairs list (each agent appears in exactly one pair)
         partner_id = next(j for (a, b) in ts.pairs for (x, j) in [(a, b), (b, a)] if x == agent_id)
-        ts.enforcement_intents[agent_id] = partner_id
+        ts.enforcement_intents[agent_id] = (partner_id, norm)
 
     # ── Consume wasted pending signal (DD-8) ──
     # Post-crystallised agents ignore incoming signals (DDM inactive)
@@ -536,8 +540,7 @@ to their matched partner. Signal takes effect in the partner's DDM in the **next
 def stage_5_enforce(agents, ts, params):
     ts_enforcements_count = 0
 
-    for enforcer_id, partner_id in ts.enforcement_intents.items():
-        enforced_strategy = agents[enforcer_id].r
+    for enforcer_id, (partner_id, enforced_strategy) in ts.enforcement_intents.items():
 
         # Write pending signal to partner (DD-8: strategy direction only)
         # If partner already has a pending_signal (from a different source),
@@ -657,7 +660,9 @@ def detect_norm_level(agents, fraction_A, belief_error, belief_var,
     # Level 1: BEHAVIORAL — behavioural regularity
     #   Condition: ≥ 95% play the same strategy, stable for 50 ticks
     if majority_frac >= 0.95:
-        ticks_at_majority = count_consecutive_ticks(history, lambda m: max(m.fraction_A, 1 - m.fraction_A) >= 0.95)
+        ticks_at_majority = 1 + count_consecutive_ticks(
+            history, lambda m: max(m.fraction_A, 1 - m.fraction_A) >= 0.95
+        )
         if ticks_at_majority >= 50:
             level = 1
 
@@ -679,7 +684,7 @@ def detect_norm_level(agents, fraction_A, belief_error, belief_var,
     # Level 5: INSTITUTIONAL — + self-enforcing stability
     #   Condition: Level 4 for ≥ 200 consecutive ticks
     if level >= 4:
-        ticks_at_level4 = count_consecutive_ticks(history, lambda m: m.norm_level >= 4)
+        ticks_at_level4 = 1 + count_consecutive_ticks(history, lambda m: m.norm_level >= 4)
         if ticks_at_level4 >= 200:
             level = 5
 
@@ -790,6 +795,7 @@ the convergence window).
 ## 8. Execution Order Summary (Single Tick)
 
 For maximum clarity, here is the complete tick as a flat sequence:
+If `enable_normative=False`, skip Stages 4-5 and keep `num_enforcements=0`.
 
 ```
 TICK t:
