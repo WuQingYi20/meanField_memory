@@ -32,44 +32,44 @@
 
 | Parameter | Symbol | Default | Type | Constraint | Source |
 |-----------|--------|---------|------|------------|--------|
-| Number of agents | N | 100 | int | even, ≥ 2 | — |
-| Number of ticks | T | 1000 | int | ≥ 1 | — |
-| Random seed | seed | None | int? | — | For reproducibility |
-| Confidence increase | α | 0.1 | float | (0, 1) | Slovic 1993 |
-| Confidence decrease | β | 0.3 | float | (0, 1), β > α | Slovic 1993 |
-| Initial confidence | C₀ | 0.5 | float | [0, 1] | — |
-| Memory base window | w\_base | 2 | int | ≥ 1 | Hertwig 2010 |
-| Memory max window | w\_max | 6 | int | ≥ w\_base | Nevo & Erev 2012 |
+| Number of agents | N | 100 | Int | even, ≥ 2 | — |
+| Number of ticks | T | 1000 | Int | ≥ 1 | — |
+| Random seed | seed | nothing | Union{Int, Nothing} | — | For reproducibility |
+| Confidence increase | α | 0.1 | Float64 | (0, 1) | Slovic 1993 |
+| Confidence decrease | β | 0.3 | Float64 | (0, 1), β > α | Slovic 1993 |
+| Initial confidence | C₀ | 0.5 | Float64 | [0, 1] | — |
+| Memory base window | w\_base | 2 | Int | ≥ 1 | Hertwig 2010 |
+| Memory max window | w\_max | 6 | Int | ≥ w\_base | Nevo & Erev 2012 |
 
 ### 1.2 Normative Layer
 
 | Parameter | Symbol | Default | Type | Constraint | Source |
 |-----------|--------|---------|------|------------|--------|
-| Enable normative memory | enable\_normative | False | bool | — | Gates entire normative subsystem. When False, Stages 4–5 are skipped and max norm level is 3. |
-| DDM noise (std dev) | σ\_noise | 0.1 | float | ≥ 0 | Germar 2014 |
-| Crystallisation threshold | θ\_crystal | 3.0 | float | > 0 | calibration |
-| Initial norm strength | σ₀ | 0.8 | float | (0, 1] | calibration |
-| Crisis threshold | θ\_crisis | 10 | int | ≥ 1 | calibration |
-| Crisis decay | λ\_crisis | 0.3 | float | (0, 1) | calibration |
-| Dissolution threshold | σ\_min | 0.1 | float | (0, σ₀) | DD-2 |
-| Strengthen rate | α\_σ | 0.005 | float | (0, 1) | Will 2023 |
-| Enforce threshold | θ\_enforce | 0.7 | float | (0, 1) | Toribio 2023 |
-| Compliance exponent | k | 2.0 | float | > 0 | calibration |
-| Signal amplification | γ\_signal | 2.0 | float | > 0 | calibration |
+| Enable normative memory | enable\_normative | false | Bool | — | Gates entire normative subsystem. When false, Stages 4–5 are skipped and max norm level is 3. |
+| DDM noise (std dev) | σ\_noise | 0.1 | Float64 | ≥ 0 | Germar 2014 |
+| Crystallisation threshold | θ\_crystal | 3.0 | Float64 | > 0 | calibration |
+| Initial norm strength | σ₀ | 0.8 | Float64 | (0, 1] | calibration |
+| Crisis threshold | θ\_crisis | 10 | Int | ≥ 1 | calibration |
+| Crisis decay | λ\_crisis | 0.3 | Float64 | (0, 1) | calibration |
+| Dissolution threshold | σ\_min | 0.1 | Float64 | (0, σ₀) | DD-2 |
+| Strengthen rate | α\_σ | 0.005 | Float64 | (0, 1) | Will 2023 |
+| Enforce threshold | θ\_enforce | 0.7 | Float64 | (0, 1) | Toribio 2023 |
+| Compliance exponent | k | 2.0 | Float64 | > 0 | calibration |
+| Signal amplification | γ\_signal | 2.0 | Float64 | > 0 | calibration |
 
 ### 1.3 Environment
 
 | Parameter | Symbol | Default | Type | Constraint | Notes |
 |-----------|--------|---------|------|------------|-------|
-| Visibility | V | 0 | int | ≥ 0 | Additional observations/tick. Default 0 = isolated learning. |
-| Social pressure | Φ | 0.0 | float | ≥ 0 | Enforcement gain. 0 = disabled, 1 = baseline. |
+| Visibility | V | 0 | Int | ≥ 0 | Additional observations/tick. Default 0 = isolated learning. |
+| Social pressure | Φ | 0.0 | Float64 | ≥ 0 | Enforcement gain. 0 = disabled, 1 = baseline. |
 
 ### 1.4 Convergence
 
 | Parameter | Default | Type | Notes |
 |-----------|---------|------|-------|
-| convergence\_threshold | 0.95 | float | Fraction for majority |
-| convergence\_window | 50 | int | Ticks maintaining threshold |
+| convergence\_threshold | 0.95 | Float64 | Fraction for majority |
+| convergence\_window | 50 | Int | Ticks maintaining threshold |
 
 ---
 
@@ -77,58 +77,60 @@
 
 ### 2.1 Strategy Encoding and RNG
 
-```
-Strategy = int   # 0 = A, 1 = B
+```julia
+const Strategy = Int   # 0 = A, 1 = B
 ```
 
-**RNG ownership**: A single `numpy.random.RandomState(seed)` instance is created
-during initialisation and passed explicitly to every function that requires
-randomness. All pseudocode in this spec uses the bare name `rng` for brevity;
-in implementation, `rng` is always the same object, threaded through as a
-parameter (`rng` argument on `run_tick` and every helper/stage that uses
-randomness, such as `stage_1_pair_and_act`, `stage_2_observe_and_memory`,
-`stage_4_normative`, `map_predict`, and `ddm_update`). This guarantees:
+**RNG ownership**: A single `MersenneTwister(seed)` instance (from `Random`) is
+created during initialisation and passed explicitly to every function that
+requires randomness. All pseudocode in this spec uses the bare name `rng` for
+brevity; in implementation, `rng` is always the same object, threaded through as
+a parameter (`rng` argument on `run_tick!` and every helper/stage that uses
+randomness, such as `stage_1_pair_and_act!`, `stage_2_observe_and_memory!`,
+`stage_4_normative!`, `map_predict`, and `ddm_update!`). This guarantees:
 - **Reproducibility**: identical seed → identical trajectory.
 - **No hidden state**: RNG is never module-global or thread-local.
 - **Parallelism-safe**: independent runs use independent RNG instances.
 
 ### 2.2 AgentState
 
-```python
-class AgentState:
+```julia
+mutable struct AgentState
     # ── Experience memory ──
-    fifo: Deque[Strategy]     # maxlen = w_max; stores partner strategies only
-    b_exp: float[2]           # [b_A, b_B]; sums to 1.0; default [0.5, 0.5]
+    fifo::CircularBuffer{Int}     # capacity = w_max; stores partner strategies only
+    b_exp::Vector{Float64}        # [b_A, b_B]; sums to 1.0; default [0.5, 0.5]
 
     # ── Confidence ──
-    C: float                  # ∈ [0, 1]; init = C₀
-    w: int                    # Current window = f(C); init = w_base + floor(C₀ * (w_max - w_base))
+    C::Float64                    # ∈ [0, 1]; init = C₀
+    w::Int                        # Current window = f(C); init = w_base + floor(C₀ * (w_max - w_base))
 
     # ── Normative memory ──
-    r: Strategy | None        # Norm rule; None = no norm
-    sigma: float              # Norm strength ∈ [0, 1]; 0.0 when no norm
-    a: int                    # Anomaly counter; 0 when no norm
-    e: float                  # DDM evidence accumulator; 0.0 initial
+    r::Union{Int, Nothing}        # Norm rule; nothing = no norm
+    sigma::Float64                # Norm strength ∈ [0, 1]; 0.0 when no norm
+    a::Int                        # Anomaly counter; 0 when no norm
+    e::Float64                    # DDM evidence accumulator; 0.0 initial
 
     # ── Enforcement buffer ──
-    pending_signal: Strategy | None   # Enforced strategy from prev tick, or None
+    pending_signal::Union{Int, Nothing}   # Enforced strategy from prev tick, or nothing
 
     # ── Derived (recomputed in Stage 1) ──
-    compliance: float         # sigma^k; 0.0 if no norm
-    b_eff: float[2]           # Effective belief after normative constraint
+    compliance::Float64           # sigma^k; 0.0 if no norm
+    b_eff::Vector{Float64}        # Effective belief after normative constraint
+end
 ```
 
 ### 2.3 InteractionRecord
 
-```python
-class InteractionRecord:
-    i: int                    # Agent index
-    j: int                    # Partner index
-    action_i: Strategy        # i's chosen strategy
-    action_j: Strategy        # j's chosen strategy
-    pred_i: Strategy          # i's MAP prediction of j
-    pred_j: Strategy          # j's MAP prediction of i
-    coordinated: bool         # action_i == action_j
+```julia
+struct InteractionRecord
+    i::Int                        # Agent index
+    j::Int                        # Partner index
+    action_i::Int                 # i's chosen strategy
+    action_j::Int                 # j's chosen strategy
+    pred_i::Int                   # i's MAP prediction of j
+    pred_j::Int                   # j's MAP prediction of i
+    coordinated::Bool             # action_i == action_j
+end
 ```
 
 ### 2.4 TickState (transient, per-tick working data)
@@ -136,83 +138,95 @@ class InteractionRecord:
 All fields are initialised when `TickState()` is constructed. Stages populate
 them progressively; later stages may read fields written by earlier stages.
 
-```python
-class TickState:
-    pairs: list[tuple[int, int]] = []               # Set in Stage 1
-    interactions: list[InteractionRecord] = []       # Set in Stage 1
-    observations: dict[int, list[Strategy]] = {}     # Set in Stage 2
-    enforcement_intents: dict[int, tuple[int, Strategy]] = {}  # enforcer_id -> (partner_id, enforced_strategy)
-    num_enforcements: int = 0                        # Set in Stage 5
+```julia
+mutable struct TickState
+    pairs::Vector{Tuple{Int, Int}}                          # Set in Stage 1
+    interactions::Vector{InteractionRecord}                  # Set in Stage 1
+    observations::Dict{Int, Vector{Int}}                     # Set in Stage 2
+    enforcement_intents::Dict{Int, Tuple{Int, Int}}          # enforcer_id => (partner_id, enforced_strategy)
+    num_enforcements::Int                                    # Set in Stage 5
+
+    TickState() = new(
+        Tuple{Int,Int}[], InteractionRecord[], Dict{Int,Vector{Int}}(),
+        Dict{Int,Tuple{Int,Int}}(), 0
+    )
+end
 ```
 
 ### 2.5 TickMetrics
 
-```python
-class TickMetrics:
-    tick: int
-    fraction_A: float                 # Fraction of agents who played A
-    mean_confidence: float            # Mean C across all agents
-    coordination_rate: float          # Fraction of pairs that coordinated
-    num_crystallised: int             # Agents with r ≠ None
-    mean_norm_strength: float         # Mean σ among crystallised agents (0 if none)
-    num_enforcements: int             # Enforcement events this tick
-    norm_level: int                   # 0–5 (Section 5)
-    belief_error: float               # Mean |b_A_eff - fraction_A| across agents
-    belief_variance: float            # Var(b_A_eff) across agents
-    convergence_counter: int          # Consecutive ticks at ≥ convergence_threshold
+```julia
+struct TickMetrics
+    tick::Int
+    fraction_A::Float64                 # Fraction of agents who played A
+    mean_confidence::Float64            # Mean C across all agents
+    coordination_rate::Float64          # Fraction of pairs that coordinated
+    num_crystallised::Int               # Agents with r ≠ nothing
+    mean_norm_strength::Float64         # Mean σ among crystallised agents (0 if none)
+    num_enforcements::Int               # Enforcement events this tick
+    norm_level::Int                     # 0–5 (Section 5)
+    belief_error::Float64               # Mean |b_A_eff - fraction_A| across agents
+    belief_variance::Float64            # Var(b_A_eff) across agents
+    convergence_counter::Int            # Consecutive ticks at ≥ convergence_threshold
+end
 ```
 
 ---
 
 ## 3. Initialization
 
-```python
-def initialize(params) -> tuple[list[AgentState], RandomState]:
-    rng = RandomState(params.seed)
-    agents = []
-    for i in range(params.N):
-        a = AgentState()
-        a.fifo = Deque(maxlen=params.w_max)      # empty
-        a.b_exp = [0.5, 0.5]
-        a.C = params.C0
-        a.w = params.w_base + floor(params.C0 * (params.w_max - params.w_base))
-        a.r = None
-        a.sigma = 0.0
-        a.a = 0
-        a.e = 0.0
-        a.pending_signal = None
-        a.compliance = 0.0
-        a.b_eff = [0.5, 0.5]
-        agents.append(a)
-    return agents, rng    # rng is passed to run_tick and all stage functions
+```julia
+function initialize(params)
+    rng = MersenneTwister(params.seed)
+    agents = AgentState[]
+    for i in 1:params.N
+        ag = AgentState(
+            CircularBuffer{Int}(params.w_max),                                      # fifo (empty)
+            [0.5, 0.5],                                                             # b_exp
+            params.C0,                                                              # C
+            params.w_base + floor(Int, params.C0 * (params.w_max - params.w_base)), # w
+            nothing,                                                                # r
+            0.0,                                                                    # sigma
+            0,                                                                      # a
+            0.0,                                                                    # e
+            nothing,                                                                # pending_signal
+            0.0,                                                                    # compliance
+            [0.5, 0.5],                                                             # b_eff
+        )
+        push!(agents, ag)
+    end
+    return agents, rng    # rng is passed to run_tick! and all stage functions
+end
 ```
 
 **Invariants at t=0:**
 - All agents identical (homogeneous parameters)
 - All beliefs uniform → 50-50 strategy split in expectation
 - All DDM accumulators at 0 → no norm formation pressure
-- All pending signals None → no enforcement
+- All pending signals nothing → no enforcement
 
 ---
 
 ## 4. Per-Tick Pipeline
 
-```python
-def run_tick(t, agents, history, params, rng) -> TickMetrics:
-    """Execute one tick. `history` is the list of TickMetrics from ticks 0..t-1."""
+```julia
+function run_tick!(t, agents, history, params, rng)
+    # Execute one tick. `history` is the vector of TickMetrics from ticks 0..t-1.
     ts = TickState()
 
-    stage_1_pair_and_act(agents, ts, params, rng)    # Write: actions, predictions
-    stage_2_observe_and_memory(agents, ts, params, rng)  # Write: fifo, b_exp, observations
-    stage_3_confidence(agents, ts, params)           # Write: C, w
-    if params.enable_normative:
-        stage_4_normative(agents, ts, params, rng)   # Write: e/r/sigma/a; consume pending_signal
-        stage_5_enforce(agents, ts, params)          # Write: pending_signal on receivers
-    else:
+    stage_1_pair_and_act!(agents, ts, params, rng)       # Write: actions, predictions
+    stage_2_observe_and_memory!(agents, ts, params, rng) # Write: fifo, b_exp, observations
+    stage_3_confidence!(agents, ts, params)               # Write: C, w
+    if params.enable_normative
+        stage_4_normative!(agents, ts, params, rng)      # Write: e/r/sigma/a; consume pending_signal
+        stage_5_enforce!(agents, ts, params)              # Write: pending_signal on receivers
+    else
         ts.num_enforcements = 0
+    end
     metrics = stage_6_metrics(agents, ts, t, history, params)  # Read-only
 
     return metrics
+end
 ```
 
 **Synchronisation guarantee**: Each stage processes **all** agents before the next
@@ -228,52 +242,55 @@ only read in Stage 4 of the **next** tick, so no within-tick conflict exists.
 
 **Purpose**: Form random pairs, compute effective beliefs, select actions, make predictions.
 
-```python
-def stage_1_pair_and_act(agents, ts, params, rng):
+```julia
+function stage_1_pair_and_act!(agents, ts, params, rng)
     # 1a. Form pairs via random permutation
-    indices = rng.permutation(params.N)
-    ts.pairs = [(indices[2*k], indices[2*k+1]) for k in range(params.N // 2)]
+    indices = randperm(rng, params.N)
+    ts.pairs = [(indices[2k-1], indices[2k]) for k in 1:(params.N ÷ 2)]
 
-    ts.interactions = []
-    for (i, j) in ts.pairs:
+    empty!(ts.interactions)
+    for (i, j) in ts.pairs
         # 1b. Compute effective belief (uses state from end of previous tick)
-        compute_effective_belief(agents[i])
-        compute_effective_belief(agents[j])
+        compute_effective_belief!(agents[i], params)
+        compute_effective_belief!(agents[j], params)
 
         # 1c. Action selection: probability matching
-        action_i = 0 if rng.random() < agents[i].b_eff[0] else 1
-        action_j = 0 if rng.random() < agents[j].b_eff[0] else 1
+        action_i = rand(rng) < agents[i].b_eff[1] ? 0 : 1
+        action_j = rand(rng) < agents[j].b_eff[1] ? 0 : 1
 
         # 1d. MAP prediction (deterministic, tie-break random)
         pred_i = map_predict(agents[i].b_eff, rng)   # i predicts j's action
         pred_j = map_predict(agents[j].b_eff, rng)   # j predicts i's action
 
         # 1e. Record
-        ts.interactions.append(InteractionRecord(
-            i=i, j=j,
-            action_i=action_i, action_j=action_j,
-            pred_i=pred_i, pred_j=pred_j,
-            coordinated=(action_i == action_j)
+        push!(ts.interactions, InteractionRecord(
+            i, j, action_i, action_j, pred_i, pred_j, action_i == action_j
         ))
+    end
+end
 
-def compute_effective_belief(agent):
-    if agent.r is not None:
-        agent.compliance = agent.sigma ** k
-        b_norm = [1.0, 0.0] if agent.r == 0 else [0.0, 1.0]
+function compute_effective_belief!(agent, params)
+    if agent.r !== nothing
+        agent.compliance = agent.sigma ^ params.k
+        b_norm = agent.r == 0 ? [1.0, 0.0] : [0.0, 1.0]
         c = agent.compliance
-        agent.b_eff = [c * b_norm[0] + (1 - c) * agent.b_exp[0],
-                       c * b_norm[1] + (1 - c) * agent.b_exp[1]]
-    else:
+        agent.b_eff = [c * b_norm[1] + (1 - c) * agent.b_exp[1],
+                       c * b_norm[2] + (1 - c) * agent.b_exp[2]]
+    else
         agent.compliance = 0.0
-        agent.b_eff = agent.b_exp[:]    # copy
+        agent.b_eff = copy(agent.b_exp)
+    end
+end
 
-def map_predict(b_eff, rng) -> Strategy:
-    if b_eff[0] > b_eff[1]:
+function map_predict(b_eff, rng)::Int
+    if b_eff[1] > b_eff[2]
         return 0    # predict A
-    elif b_eff[1] > b_eff[0]:
+    elseif b_eff[2] > b_eff[1]
         return 1    # predict B
-    else:
-        return rng.choice([0, 1])       # tie-break: random (DD-10)
+    else
+        return rand(rng, [0, 1])       # tie-break: random (DD-10)
+    end
+end
 ```
 
 **Notes:**
@@ -288,64 +305,72 @@ def map_predict(b_eff, rng) -> Strategy:
 **Purpose**: Add partner's strategy to FIFO, sample V additional observations,
 recompute experience belief.
 
-```python
-def stage_2_observe_and_memory(agents, ts, params, rng):
-    # Build lookup: agent_id → (partner_id, partner_action)
-    partner_map = {}
-    for rec in ts.interactions:
+```julia
+function stage_2_observe_and_memory!(agents, ts, params, rng)
+    # Build lookup: agent_id => (partner_id, partner_action)
+    partner_map = Dict{Int, Tuple{Int, Int}}()
+    for rec in ts.interactions
         partner_map[rec.i] = (rec.j, rec.action_j)
         partner_map[rec.j] = (rec.i, rec.action_i)
+    end
 
     # Collect all interactions for observation sampling
-    all_interactions = ts.interactions  # len = N/2
+    all_interactions = ts.interactions  # length = N/2
 
-    for i in range(params.N):
+    for i in 1:params.N
         partner_j, partner_action = partner_map[i]
 
         # 2a. Add partner's strategy to FIFO (DD-1: partner only)
-        agents[i].fifo.append(partner_action)
+        push!(agents[i].fifo, partner_action)
 
         # 2b. Build observation set O_i(t) for normative memory
         obs = [partner_action]   # Always includes partner
 
-        if params.V > 0:
+        if params.V > 0
             # Eligible interactions: those not involving agent i
             eligible = [rec for rec in all_interactions
-                        if rec.i != i and rec.j != i]
-            n_sample = min(params.V, len(eligible))
-            sampled = rng.choice(eligible, size=n_sample, replace=False)
+                        if rec.i != i && rec.j != i]
+            n_sample = min(params.V, length(eligible))
+            sampled = sample(rng, eligible, n_sample; replace=false)
 
-            for rec in sampled:
+            for rec in sampled
                 # Observe one random participant's strategy (DD-4)
-                if rng.random() < 0.5:
-                    obs.append(rec.action_i)
-                else:
-                    obs.append(rec.action_j)
+                if rand(rng) < 0.5
+                    push!(obs, rec.action_i)
+                else
+                    push!(obs, rec.action_j)
+                end
+            end
+        end
 
-        ts.observations[i] = obs   # len = 1 + actual_V (may be < 1+V if N small)
+        ts.observations[i] = obs   # length = 1 + actual_V (may be < 1+V if N small)
 
         # 2c. Recompute experience belief from FIFO
         agents[i].b_exp = compute_b_exp(agents[i])
+    end
+end
 
-def compute_b_exp(agent) -> float[2]:
+function compute_b_exp(agent)::Vector{Float64}
     # Use the last w entries from FIFO (DD-9)
-    window = min(agent.w, len(agent.fifo))
-    if window == 0:
+    window = min(agent.w, length(agent.fifo))
+    if window == 0
         return [0.5, 0.5]
-    # fifo[-window:] = most recent `window` entries
-    recent = list(agent.fifo)[-window:]
-    n_A = sum(1 for s in recent if s == 0)
+    end
+    # fifo[end-window+1:end] = most recent `window` entries
+    recent = collect(agent.fifo)[end-window+1:end]
+    n_A = count(s -> s == 0, recent)
     b_A = n_A / window
     return [b_A, 1.0 - b_A]
+end
 ```
 
 **Observation semantics:**
-- `obs[0]` is always the direct partner's strategy.
-- `obs[1:]` are from V additional random interactions (if V > 0).
+- `obs[1]` is always the direct partner's strategy.
+- `obs[2:end]` are from V additional random interactions (if V > 0).
 - Total `|obs| = 1 + min(V, N/2 - 1)`. When N=2, no additional observations possible.
 
 **FIFO semantics:**
-- Max capacity = w\_max (constant). When full, oldest entry is dropped on append.
+- Max capacity = w\_max (constant). When full, oldest entry is dropped on push.
 - Belief uses last `w` entries (w ≤ w\_max). If FIFO has fewer than `w` entries
   (early ticks), use all available entries.
 
@@ -355,27 +380,31 @@ def compute_b_exp(agent) -> float[2]:
 
 **Purpose**: Update predictive confidence based on prediction accuracy, recompute window size.
 
-```python
-def stage_3_confidence(agents, ts, params):
-    partner_map = {}   # same as Stage 2
-    for rec in ts.interactions:
+```julia
+function stage_3_confidence!(agents, ts, params)
+    partner_map = Dict{Int, Tuple{Int, Int, Int}}()
+    for rec in ts.interactions
         partner_map[rec.i] = (rec.j, rec.action_j, rec.pred_i)
         partner_map[rec.j] = (rec.i, rec.action_i, rec.pred_j)
+    end
 
-    for i in range(params.N):
+    for i in 1:params.N
         _, partner_action, my_prediction = partner_map[i]
         correct = (my_prediction == partner_action)
 
-        if correct:
+        if correct
             agents[i].C = agents[i].C + params.alpha * (1.0 - agents[i].C)
-        else:
+        else
             agents[i].C = agents[i].C * (1.0 - params.beta)
+        end
 
         # Clamp (should be redundant but defensive)
-        agents[i].C = max(0.0, min(1.0, agents[i].C))
+        agents[i].C = clamp(agents[i].C, 0.0, 1.0)
 
         # Recompute window size
-        agents[i].w = params.w_base + int(agents[i].C * (params.w_max - params.w_base))
+        agents[i].w = params.w_base + floor(Int, agents[i].C * (params.w_max - params.w_base))
+    end
+end
 ```
 
 **Dynamics:**
@@ -397,51 +426,57 @@ def stage_3_confidence(agents, ts, params):
 or anomaly tracking / strengthening / crisis (post-crystallisation). Consume pending
 enforcement signals.
 
-```python
-def stage_4_normative(agents, ts, params, rng):
-    for i in range(params.N):
+```julia
+function stage_4_normative!(agents, ts, params, rng)
+    for i in 1:params.N
         obs = ts.observations[i]  # O_i(t) from Stage 2
 
-        if agents[i].r is None:
+        if agents[i].r === nothing
             # ── PRE-CRYSTALLISATION: DDM ──
-            ddm_update(agents[i], obs, params, rng)
-        else:
+            ddm_update!(agents[i], obs, params, rng)
+        else
             # ── POST-CRYSTALLISATION: anomaly / strengthening / crisis ──
-            post_crystal_update(agents[i], i, obs, ts, params)
+            post_crystal_update!(agents[i], i, obs, ts, params)
+        end
+    end
+end
 ```
 
 #### 4.4.1 Pre-Crystallisation: DDM Update
 
-```python
-def ddm_update(agent, obs, params, rng):
+```julia
+function ddm_update!(agent, obs, params, rng)
     # a) Signed consistency from full observation set
-    n_A = sum(1 for s in obs if s == 0)
-    n_B = len(obs) - n_A
-    f_diff = (n_A - n_B) / len(obs)      # ∈ [-1, 1]
+    n_A = count(s -> s == 0, obs)
+    n_B = length(obs) - n_A
+    f_diff = (n_A - n_B) / length(obs)      # ∈ [-1, 1]
 
     # b) Drift: confidence-gated
     drift = (1.0 - agent.C) * f_diff
 
     # c) Signal push from previous tick's enforcement (DD-5, DD-8)
     signal_push = 0.0
-    if agent.pending_signal is not None:
-        direction = +1.0 if agent.pending_signal == 0 else -1.0   # dir(A)=+1, dir(B)=-1
+    if agent.pending_signal !== nothing
+        direction = agent.pending_signal == 0 ? +1.0 : -1.0   # dir(A)=+1, dir(B)=-1
         signal_push = params.Phi * (1.0 - agent.C) * params.gamma_signal * direction
-        agent.pending_signal = None       # consumed
+        agent.pending_signal = nothing       # consumed
+    end
 
     # d) Noise
-    noise = rng.normal(0, params.sigma_noise)
+    noise = randn(rng) * params.sigma_noise
 
     # e) Evidence accumulation
     agent.e += drift + signal_push + noise
 
     # f) Crystallisation check
-    if abs(agent.e) >= params.theta_crystal:
-        agent.r = 0 if agent.e > 0 else 1   # A if positive, B if negative
+    if abs(agent.e) >= params.theta_crystal
+        agent.r = agent.e > 0 ? 0 : 1   # A if positive, B if negative
         agent.sigma = params.sigma_0
         agent.a = 0
         # e is NOT reset; it's irrelevant post-crystallisation
         # (will be reset to 0 only on dissolution)
+    end
+end
 ```
 
 **Key properties:**
@@ -453,67 +488,80 @@ def ddm_update(agent, obs, params, rng):
 
 #### 4.4.2 Post-Crystallisation: Anomaly, Strengthening, Crisis
 
-```python
-def post_crystal_update(agent, agent_id, obs, ts, params):
+```julia
+function post_crystal_update!(agent, agent_id, obs, ts, params)
     norm = agent.r  # A (0) or B (1)
 
     # ── Separate partner observation from V observations ──
-    partner_action = obs[0]
-    v_observations = obs[1:]       # may be empty if V=0
+    partner_action = obs[1]
+    v_observations = obs[2:end]       # may be empty if V=0
 
     # ── Count violations and conformities from V observations ──
-    v_violations = sum(1 for s in v_observations if s != norm)
-    v_conform = sum(1 for s in v_observations if s == norm)
+    v_violations = count(s -> s != norm, v_observations)
+    v_conform = count(s -> s == norm, v_observations)
 
     # ── Handle partner observation ──
     partner_conform = 0
     partner_violation = 0
-    enforcement_triggered = False
+    enforcement_triggered = false
 
-    if partner_action == norm:
+    if partner_action == norm
         partner_conform = 1
-    else:
+    else
         # Partner violated — enforce or accumulate? (DD-6, DD-7)
-        can_enforce = (params.Phi > 0) and (agent.sigma > params.theta_enforce)
-        if can_enforce:
-            enforcement_triggered = True
+        can_enforce = (params.Phi > 0) && (agent.sigma > params.theta_enforce)
+        if can_enforce
+            enforcement_triggered = true
             # Partner violation NOT counted as anomaly
-        else:
+        else
             partner_violation = 1
+        end
+    end
 
     # ── Totals ──
     total_violations = v_violations + partner_violation
     total_conform = v_conform + partner_conform
 
     # ── Batch strengthening (DD-3) ──
-    for _ in range(total_conform):
+    for _ in 1:total_conform
         agent.sigma = min(1.0, agent.sigma + params.alpha_sigma * (1.0 - agent.sigma))
+    end
 
     # ── Batch anomaly accumulation (DD-3) ──
     agent.a += total_violations
 
     # ── Crisis check (once, after all updates) (DD-3) ──
-    if agent.a >= params.theta_crisis:
+    if agent.a >= params.theta_crisis
         agent.sigma *= params.lambda_crisis
         agent.a = 0
 
         # Dissolution check
-        if agent.sigma < params.sigma_min:
-            agent.r = None
+        if agent.sigma < params.sigma_min
+            agent.r = nothing
             agent.e = 0.0           # Reset DDM for re-crystallisation
             agent.sigma = 0.0
             agent.a = 0
+        end
+    end
 
     # ── Record enforcement intent for Stage 5 ──
-    # Partner ID comes from the pair that produced obs[0].
-    if enforcement_triggered:
+    if enforcement_triggered
         # Find partner from pairs list (each agent appears in exactly one pair)
-        partner_id = next(j for (a, b) in ts.pairs for (x, j) in [(a, b), (b, a)] if x == agent_id)
+        partner_id = 0
+        for (a, b) in ts.pairs
+            if a == agent_id
+                partner_id = b; break
+            elseif b == agent_id
+                partner_id = a; break
+            end
+        end
         ts.enforcement_intents[agent_id] = (partner_id, norm)
+    end
 
     # ── Consume wasted pending signal (DD-8) ──
     # Post-crystallised agents ignore incoming signals (DDM inactive)
-    agent.pending_signal = None
+    agent.pending_signal = nothing
+end
 ```
 
 **Batch strengthening detail:**
@@ -525,7 +573,7 @@ def post_crystal_update(agent, agent_id, obs, ts, params):
 **Crisis detail:**
 - Crisis fires when accumulated anomalies ≥ θ\_crisis (across **all ticks**, not per-tick).
 - After crisis: anomaly counter resets to 0, σ drops by factor λ\_crisis.
-- If σ drops below σ\_min = 0.1: norm dissolves entirely (r = None, e = 0).
+- If σ drops below σ\_min = 0.1: norm dissolves entirely (r = nothing, e = 0).
 - After dissolution, agent re-enters pre-crystallisation and can form a new norm
   (possibly for the other strategy).
 
@@ -536,20 +584,22 @@ def post_crystal_update(agent, agent_id, obs, ts, params):
 **Purpose**: Agents flagged for enforcement in Stage 4 write a `pending_signal`
 to their matched partner. Signal takes effect in the partner's DDM in the **next tick**.
 
-```python
-def stage_5_enforce(agents, ts, params):
+```julia
+function stage_5_enforce!(agents, ts, params)
     ts_enforcements_count = 0
 
-    for enforcer_id, (partner_id, enforced_strategy) in ts.enforcement_intents.items():
+    for (enforcer_id, (partner_id, enforced_strategy)) in ts.enforcement_intents
 
         # Write pending signal to partner (DD-8: strategy direction only)
         # If partner already has a pending_signal (from a different source),
         # overwrite — at most one signal per agent per tick.
         agents[partner_id].pending_signal = enforced_strategy
         ts_enforcements_count += 1
+    end
 
     # Store count for metrics
     ts.num_enforcements = ts_enforcements_count
+end
 ```
 
 **Signal lifecycle:**
@@ -573,34 +623,35 @@ signals are wasted (received by agents with inactive DDMs).
 
 **Purpose**: Compute per-tick metrics. Read-only (no state modification).
 
-`stage_6_metrics` receives the tick index `t` and cumulative `history` (list of all
-prior TickMetrics) from the caller `run_tick`. It uses `history` for norm detection
+`stage_6_metrics` receives the tick index `t` and cumulative `history` (vector of all
+prior TickMetrics) from the caller `run_tick!`. It uses `history` for norm detection
 (consecutive-tick checks) and convergence tracking.
 
-```python
-def stage_6_metrics(agents, ts, t, history, params) -> TickMetrics:
+```julia
+function stage_6_metrics(agents, ts, t, history, params)
     N = params.N
 
     # Extract each agent's action this tick from interaction records.
     # Each InteractionRecord contains both agents' actions; build a full N-vector.
-    actions = [None] * N
-    for rec in ts.interactions:
+    actions = Vector{Int}(undef, N)
+    for rec in ts.interactions
         actions[rec.i] = rec.action_i
         actions[rec.j] = rec.action_j
+    end
 
-    fraction_A = sum(1 for a in actions if a == 0) / N
+    fraction_A = count(a -> a == 0, actions) / N
     mean_C = sum(ag.C for ag in agents) / N
-    coord_rate = sum(1 for rec in ts.interactions if rec.coordinated) / len(ts.interactions)
+    coord_rate = count(rec -> rec.coordinated, ts.interactions) / length(ts.interactions)
 
-    crystallised = [ag for ag in agents if ag.r is not None]
-    num_cryst = len(crystallised)
-    mean_sigma = (sum(ag.sigma for ag in crystallised) / num_cryst) if num_cryst > 0 else 0.0
+    crystallised = [ag for ag in agents if ag.r !== nothing]
+    num_cryst = length(crystallised)
+    mean_sigma = num_cryst > 0 ? sum(ag.sigma for ag in crystallised) / num_cryst : 0.0
 
     # Belief accuracy and consensus
-    b_A_values = [ag.b_eff[0] for ag in agents]
+    b_A_values = [ag.b_eff[1] for ag in agents]
     belief_error = sum(abs(b - fraction_A) for b in b_A_values) / N
     mean_b = sum(b_A_values) / N
-    belief_var = sum((b - mean_b) ** 2 for b in b_A_values) / N
+    belief_var = sum((b - mean_b)^2 for b in b_A_values) / N
 
     # Norm detection (Section 5)
     norm_level = detect_norm_level(agents, fraction_A, belief_error,
@@ -609,25 +660,19 @@ def stage_6_metrics(agents, ts, t, history, params) -> TickMetrics:
     # Convergence counter: how many consecutive ticks (including this one)
     # the majority fraction has been ≥ convergence_threshold.
     majority_frac = max(fraction_A, 1.0 - fraction_A)
-    if majority_frac >= params.convergence_threshold:
-        prev = history[-1].convergence_counter if len(history) > 0 else 0
+    if majority_frac >= params.convergence_threshold
+        prev = length(history) > 0 ? last(history).convergence_counter : 0
         conv_counter = prev + 1
-    else:
+    else
         conv_counter = 0
+    end
 
     return TickMetrics(
-        tick=t,
-        fraction_A=fraction_A,
-        mean_confidence=mean_C,
-        coordination_rate=coord_rate,
-        num_crystallised=num_cryst,
-        mean_norm_strength=mean_sigma,
-        num_enforcements=ts.num_enforcements,
-        norm_level=norm_level,
-        belief_error=belief_error,
-        belief_variance=belief_var,
-        convergence_counter=conv_counter,
+        t, fraction_A, mean_C, coord_rate, num_cryst,
+        mean_sigma, ts.num_enforcements, norm_level,
+        belief_error, belief_var, conv_counter,
     )
+end
 ```
 
 ---
@@ -637,20 +682,23 @@ def stage_6_metrics(agents, ts, t, history, params) -> TickMetrics:
 Each level subsumes all lower levels. The norm level is the **highest** level whose
 conditions are currently met.
 
-```python
-def count_consecutive_ticks(history, predicate) -> int:
-    """Count how many consecutive ticks at the END of history satisfy predicate.
-    Returns 0 if history is empty or the most recent tick fails the predicate."""
-    count = 0
-    for m in reversed(history):
-        if predicate(m):
-            count += 1
-        else:
+```julia
+function count_consecutive_ticks(history, predicate)
+    # Count how many consecutive ticks at the END of history satisfy predicate.
+    # Returns 0 if history is empty or the most recent tick fails the predicate.
+    n = 0
+    for m in Iterators.reverse(history)
+        if predicate(m)
+            n += 1
+        else
             break
-    return count
+        end
+    end
+    return n
+end
 
-def detect_norm_level(agents, fraction_A, belief_error, belief_var,
-                       num_crystallised, history, params) -> int:
+function detect_norm_level(agents, fraction_A, belief_error, belief_var,
+                           num_crystallised, history, params)
     N = params.N
     majority_frac = max(fraction_A, 1.0 - fraction_A)
 
@@ -659,59 +707,69 @@ def detect_norm_level(agents, fraction_A, belief_error, belief_var,
 
     # Level 1: BEHAVIORAL — behavioural regularity
     #   Condition: ≥ 95% play the same strategy, stable for 50 ticks
-    if majority_frac >= 0.95:
+    if majority_frac >= 0.95
         ticks_at_majority = 1 + count_consecutive_ticks(
-            history, lambda m: max(m.fraction_A, 1 - m.fraction_A) >= 0.95
+            history, m -> max(m.fraction_A, 1 - m.fraction_A) >= 0.95
         )
-        if ticks_at_majority >= 50:
+        if ticks_at_majority >= 50
             level = 1
+        end
+    end
 
     # Level 2: EMPIRICAL — + accurate beliefs
     #   Condition: Level 1 AND mean |b_A_eff - actual_fraction_A| < 0.10
-    if level >= 1 and belief_error < 0.10:
+    if level >= 1 && belief_error < 0.10
         level = 2
+    end
 
     # Level 3: SHARED — + belief consensus
     #   Condition: Level 2 AND Var(b_A_eff) < 0.05
-    if level >= 2 and belief_var < 0.05:
+    if level >= 2 && belief_var < 0.05
         level = 3
+    end
 
     # Level 4: NORMATIVE — + norm internalisation
     #   Condition: Level 3 AND ≥ 80% agents have crystallised norms
-    if level >= 3 and num_crystallised / N >= 0.80:
+    if level >= 3 && num_crystallised / N >= 0.80
         level = 4
+    end
 
     # Level 5: INSTITUTIONAL — + self-enforcing stability
     #   Condition: Level 4 for ≥ 200 consecutive ticks
-    if level >= 4:
-        ticks_at_level4 = 1 + count_consecutive_ticks(history, lambda m: m.norm_level >= 4)
-        if ticks_at_level4 >= 200:
+    if level >= 4
+        ticks_at_level4 = 1 + count_consecutive_ticks(history, m -> m.norm_level >= 4)
+        if ticks_at_level4 >= 200
             level = 5
+        end
+    end
 
     return level
+end
 ```
 
-**Important**: Levels 4–5 require `enable_normative = True`. Without normative memory,
+**Important**: Levels 4–5 require `enable_normative = true`. Without normative memory,
 max achievable is Level 3.
 
 ---
 
 ## 6. Convergence and Termination
 
-```python
-def check_convergence(history, params) -> bool:
-    if len(history) < params.convergence_window:
-        return False
-    recent = history[-params.convergence_window:]
+```julia
+function check_convergence(history, params)::Bool
+    if length(history) < params.convergence_window
+        return false
+    end
+    recent = history[end-params.convergence_window+1:end]
     return all(
-        max(m.fraction_A, 1.0 - m.fraction_A) >= params.convergence_threshold
-        for m in recent
+        m -> max(m.fraction_A, 1.0 - m.fraction_A) >= params.convergence_threshold,
+        recent
     )
+end
 ```
 
 **Termination conditions** (any one triggers stop):
 1. `tick >= T` (max ticks reached)
-2. `check_convergence() == True` (stable consensus achieved)
+2. `check_convergence() == true` (stable consensus achieved)
 
 When termination is by convergence, record the convergence tick (first tick of
 the convergence window).
@@ -730,8 +788,8 @@ the convergence window).
 | b\_eff sums to 1 | After every effective belief computation |
 | w ∈ [w\_base, w\_max] | After every window recomputation |
 | a ≥ 0 | Anomaly counter non-negative |
-| If r is None: σ = 0 and a = 0 | No norm → no strength, no anomalies |
-| len(fifo) ≤ w\_max | FIFO capacity respected |
+| If r is nothing: σ = 0 and a = 0 | No norm → no strength, no anomalies |
+| length(fifo) ≤ w\_max | FIFO capacity respected |
 
 ### 7.2 Edge Cases
 
@@ -757,7 +815,7 @@ the convergence window).
 ```
                           ┌──────────────┐
          init             │  NO NORM     │
-        ─────────────────→│  r = None    │
+        ─────────────────→│  r = nothing │
                           │  e ∈ ℝ       │
                           └──────┬───────┘
                                  │ |e| ≥ θ_crystal
@@ -781,7 +839,7 @@ the convergence window).
                        ▼     └───────→ back to HAS NORM
               ┌──────────────┐
               │  DISSOLVED   │
-              │  r = None    │
+              │  r = nothing │
               │  e = 0       │
               │  σ = 0       │
               └──────┬───────┘
@@ -795,7 +853,7 @@ the convergence window).
 ## 8. Execution Order Summary (Single Tick)
 
 For maximum clarity, here is the complete tick as a flat sequence:
-If `enable_normative=False`, skip Stages 4-5 and keep `num_enforcements=0`.
+If `enable_normative=false`, skip Stages 4-5 and keep `num_enforcements=0`.
 
 ```
 TICK t:
@@ -823,19 +881,19 @@ TICK t:
 │
 ├─ STAGE 4: Normative Update
 │   For all agents:
-│     IF pre-crystallised (r = None):
+│     IF pre-crystallised (r === nothing):
 │       1. Compute f_A - f_B from O_i
 │       2. drift = (1 - C) × (f_A - f_B)
 │       3. Read & clear pending_signal → compute signal_push
 │       4. e += drift + signal_push + noise
 │       5. If |e| ≥ θ_crystal: crystallise (set r, σ₀, a=0)
-│     IF post-crystallised (r ≠ None):
+│     IF post-crystallised (r !== nothing):
 │       1. Count violations (V obs → anomaly; partner → enforce or anomaly)
 │       2. Count conformities → strengthening
 │       3. Apply batch strengthening (n_conform times)
 │       4. Apply batch anomaly (a += n_violations)
 │       5. Check crisis: if a ≥ θ_crisis → σ *= λ, a=0
-│       6. Check dissolution: if σ < σ_min → dissolve (r=None, e=0)
+│       6. Check dissolution: if σ < σ_min → dissolve (r=nothing, e=0)
 │       7. Clear pending_signal (wasted on post-crystallised)
 │       8. Record enforcement intent if triggered
 │
@@ -860,7 +918,7 @@ prevent stale-value bugs.
 |----------|-----------|---------|---------|
 | action\_i | Stage 1 | Stage 2 (partner obs), Stage 6 | Same tick |
 | prediction\_i | Stage 1 | Stage 3 (accuracy check) | Same tick |
-| fifo | Stage 2 (append) | Stage 2 (b\_exp computation) | Same tick (after append) |
+| fifo | Stage 2 (push!) | Stage 2 (b\_exp computation) | Same tick (after push!) |
 | b\_exp | Stage 2 | Stage 1 of **next tick** (via b\_eff) | +1 tick |
 | C | Stage 3 | Stage 4 (DDM drift, signal push), Stage 1 of **next tick** (via w → b\_exp) | Same tick (Stage 4); +1 tick (Stage 1) |
 | w | Stage 3 | Stage 2 of **next tick** (b\_exp window) | +1 tick |
@@ -884,20 +942,20 @@ test the deterministic path directly.
 | # | Test | Setup | Expected (exact) |
 |---|------|-------|-------------------|
 | D1 | Crisis σ decay | Agent with σ=0.8, a=10, θ\_crisis=10 | After crisis: σ = 0.24, a = 0, r unchanged |
-| D2 | Double crisis dissolves | Agent with σ=0.8; trigger 2 crises | After 1st: σ=0.24. After 2nd: σ=0.072 < σ\_min → r=None, e=0, σ=0, a=0 |
+| D2 | Double crisis dissolves | Agent with σ=0.8; trigger 2 crises | After 1st: σ=0.24. After 2nd: σ=0.072 < σ\_min → r=nothing, e=0, σ=0, a=0 |
 | D3 | Strengthening recovery | Agent with σ=0.24; feed 100 conforming obs | σ\_new = 1 − (1−0.24)×(1−0.005)^100 ≈ 0.5938 |
 | D4 | Partner-only enforcement | V=3, Φ>0; partner conforms, V obs violate | No enforcement triggered (DD-6). Anomaly a += count(V violations) |
 | D5 | V obs violate, partner violates, enforce eligible | σ > θ\_enforce, Φ > 0 | Enforcement triggered for partner. Partner violation NOT counted as anomaly (DD-7). V violations counted as anomaly. |
-| D6 | Φ=0 blocks enforcement | Agent with σ=0.9 > θ\_enforce; partner violates | can\_enforce = False. Violation counted as anomaly. No pending\_signal written. |
+| D6 | Φ=0 blocks enforcement | Agent with σ=0.9 > θ\_enforce; partner violates | can\_enforce = false. Violation counted as anomaly. No pending\_signal written. |
 | D7 | Effective belief blending | r=0 (A), σ=0.8, k=2, b\_exp=[0.3, 0.7] | compliance = 0.64. b\_eff = [0.64×1.0 + 0.36×0.3, 0.64×0.0 + 0.36×0.7] = [0.748, 0.252] |
 | D8 | Window from confidence | C=0.0, w\_base=2, w\_max=6 | w=2 |
 | D9 | Window from confidence | C=1.0, w\_base=2, w\_max=6 | w=6 |
 | D10 | Confidence update correct | C=0.5, α=0.1 | C\_new = 0.5 + 0.1×0.5 = 0.55 |
 | D11 | Confidence update wrong | C=0.5, β=0.3 | C\_new = 0.5 × 0.7 = 0.35 |
-| D12 | Backward compat: no normative | enable\_normative=False, fixed memory | Stages 4–5 skipped. Agent state has r=None, σ=0, a=0 for all ticks. Max norm level = 3. |
+| D12 | Backward compat: no normative | enable\_normative=false, fixed memory | Stages 4–5 skipped. Agent state has r=nothing, σ=0, a=0 for all ticks. Max norm level = 3. |
 | D13 | Crystallisation direction | e = +3.1 ≥ θ\_crystal=3.0 | r = 0 (A). σ = σ₀. a = 0. |
 | D14 | Crystallisation direction | e = −3.1 | r = 1 (B). σ = σ₀. a = 0. |
-| D15 | Signal consumed by post-crystallised | Agent with r ≠ None receives pending\_signal | pending\_signal cleared in Stage 4. No DDM update. |
+| D15 | Signal consumed by post-crystallised | Agent with r !== nothing receives pending\_signal | pending\_signal cleared in Stage 4. No DDM update. |
 
 ### 10.2 Statistical Hypothesis Tests (require multiple trials)
 
@@ -913,4 +971,4 @@ seeded trials and statistical criteria. Run with `n_trials ≥ 30` unless noted.
 | S5 | Enforcement accelerates crystallisation (H4) | Compare Φ=1 vs. Φ=0, V=5, N=100, 30 trials | Mean crystallisation tick with Φ=1 < without, Mann-Whitney p < 0.05 |
 | S6 | V=0 DDM is noisy | V=0, Φ=0, N=100, 30 trials; track crystallisation times | CV of crystallisation tick > 0.8 (high dispersion from f\_diff = ±1) |
 | S7 | Full model reaches Level 5 | Dynamic memory, normative, V=5, Φ=1.0, N=100, 2000 ticks, 30 trials | ≥ 80% of trials reach norm\_level = 5 |
-| S8 | No-normative ceiling is Level 3 | enable\_normative=False, dynamic memory, N=100, 1000 ticks, 30 trials | 0% of trials exceed norm\_level = 3 |
+| S8 | No-normative ceiling is Level 3 | enable\_normative=false, dynamic memory, N=100, 1000 ticks, 30 trials | 0% of trials exceed norm\_level = 3 |
