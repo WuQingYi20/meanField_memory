@@ -39,11 +39,15 @@ function summarize(result::SimulationResult)
 
     last_m = history[tc]
 
-    # Find convergence tick (first tick of the convergence window)
+    # Find convergence tick (first tick norm level 5 was reached)
     conv_tick = 0
-    p = result.params::SimulationParams
-    if last_m.convergence_counter >= p.convergence_window
-        conv_tick = last_m.tick - p.convergence_window + 1
+    if last_m.norm_level >= 5
+        for i in 1:tc
+            if history[i].norm_level >= 5
+                conv_tick = history[i].tick
+                break
+            end
+        end
     end
 
     return TrialSummary(

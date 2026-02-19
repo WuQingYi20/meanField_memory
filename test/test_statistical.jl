@@ -319,12 +319,8 @@ end
         level5_count = 0
 
         for trial in 1:n_trials
-            # Disable early convergence termination so the model can accumulate
-            # 200 ticks at Level 4 (needed for Level 5).
-            # Set convergence_window > T to prevent early termination.
-            p = SimulationParams(N=100, T=2000, seed=trial * 7000 + 1,
-                                  enable_normative=true, V=5, Phi=1.0,
-                                  convergence_window=2001)
+            p = SimulationParams(N=100, T=3000, seed=trial * 7000 + 1,
+                                  enable_normative=true, V=5, Phi=1.0)
             result = run!(p)
 
             max_level = maximum(m.norm_level for m in result.history)

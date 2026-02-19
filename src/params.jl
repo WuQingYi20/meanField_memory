@@ -5,7 +5,7 @@
 Base.@kwdef struct SimulationParams
     # Experience layer
     N::Int = 100
-    T::Int = 1000
+    T::Int = 3000
     seed::Union{Int,Nothing} = nothing
     alpha::Float64 = 0.1
     beta::Float64 = 0.3

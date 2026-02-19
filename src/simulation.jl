@@ -1,21 +1,12 @@
 """
     check_convergence(history, tick_count, params)
 
-Check if convergence has been achieved (majority fraction ≥ threshold
-for convergence_window consecutive ticks).
+Check if convergence has been achieved (norm level 5 — institutional norm).
 """
 function check_convergence(history::Vector{TickMetrics}, tick_count::Int,
                             params::SimulationParams)::Bool
-    if tick_count < params.convergence_window
-        return false
-    end
-    for idx in (tick_count - params.convergence_window + 1):tick_count
-        m = history[idx]
-        if max(m.fraction_A, 1.0 - m.fraction_A) < params.convergence_threshold
-            return false
-        end
-    end
-    return true
+    tick_count >= 1 || return false
+    return history[tick_count].norm_level >= 5
 end
 
 """
