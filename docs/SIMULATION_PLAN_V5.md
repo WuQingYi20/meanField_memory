@@ -226,31 +226,27 @@ The primary experiment isolates the contribution of each mechanism.
 | **D: Full Model** | Dynamic window [2,6] | ON | INSTITUTIONAL |
 
 **Fixed parameters across all conditions:**
-- `num_agents = 100`
-- `max_ticks = 1000`
-- `decision_mode = COGNITIVE_LOCKIN`
-- `initial_trust = 0.5`
+- `N = 100`
+- `T = 3000`
+- `C0 = 0.5`
 - `alpha = 0.1, beta = 0.3`
-- `observation_k = 3`
-- `convergence_threshold = 0.95`
-- `convergence_window = 50`
+- `V = 0, Phi = 0.0`
 - `n_trials = 50` per condition (200 total)
-- Seeds: 1000–1199
+- Seeds: hash-based from base_seed=1000
+- End condition: norm level 5 (institutional) or T reached
 
 **Primary outcome measures:**
-1. Convergence time (tick at which convergence_threshold first reached)
+1. Convergence time (tick at which norm level 5 first reached; 0 if never)
 2. Maximum norm level achieved
-3. Final consensus strength (majority fraction at tick 1000)
-4. Norm adoption rate at tick 500 and tick 1000
+3. Final consensus strength (majority fraction at end)
+4. Total ticks (simulation length)
 
 **Expected results (hypothesised):**
 
 | Metric | A: Baseline | B: Lock-in | C: Normative | D: Full |
 |--------|:-:|:-:|:-:|:-:|
-| Convergence rate | ~70% | ~90% | ~80% | ~98% |
-| Mean convergence tick | ~350 | ~200 | ~250 | ~120 |
 | Max norm level | 1 | 3 | 4 | 5 |
-| Norm adoption @ t=500 | 0% | 0% | ~60% | ~90% |
+| Convergence (Level 5) rate | 0% | 0% | >0% | high |
 
 ### 2.2 Experiment 2: DDM Parameter Sensitivity
 
