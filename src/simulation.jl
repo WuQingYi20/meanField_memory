@@ -1,12 +1,12 @@
 """
     check_convergence(history, tick_count, params)
 
-Check if convergence has been achieved (norm level 5 — institutional norm).
+Check if convergence has been achieved (all 3 layers met for convergence_window ticks).
 """
 function check_convergence(history::Vector{TickMetrics}, tick_count::Int,
                             params::SimulationParams)::Bool
     tick_count >= 1 || return false
-    return history[tick_count].norm_level >= 5
+    return history[tick_count].convergence_counter >= params.convergence_window
 end
 
 """

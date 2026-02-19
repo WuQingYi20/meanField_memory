@@ -51,8 +51,8 @@ export
     stage_5_enforce!, stage_6_metrics,
     ddm_update!, post_crystal_update!,
     run_tick!, run!, check_convergence,
-    detect_norm_level, count_consecutive_ticks,
-    sweep, summarize, save_sweep_csv, save_sweep_jld2,
+    all_layers_met, count_consecutive_ticks,
+    sweep, summarize, first_tick_per_layer, save_sweep_csv, save_sweep_jld2,
     to_namedtuple,
     record_event!, record_probes!, init_probes!,
 

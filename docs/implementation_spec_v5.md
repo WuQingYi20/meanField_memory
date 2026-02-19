@@ -45,7 +45,7 @@
 
 | Parameter | Symbol | Default | Type | Constraint | Source |
 |-----------|--------|---------|------|------------|--------|
-| Enable normative memory | enable\_normative | false | Bool | — | Gates entire normative subsystem. When false, Stages 4–5 are skipped and max norm level is 3. |
+| Enable normative memory | enable\_normative | false | Bool | — | Gates entire normative subsystem. When false, Stages 4–5 are skipped and convergence never triggers (crystallisation layer blocked). |
 | DDM noise (std dev) | σ\_noise | 0.1 | Float64 | ≥ 0 | Germar 2014 |
 | Crystallisation threshold | θ\_crystal | 3.0 | Float64 | > 0 | calibration |
 | Initial norm strength | σ₀ | 0.8 | Float64 | (0, 1] | calibration |
@@ -64,12 +64,16 @@
 | Visibility | V | 0 | Int | ≥ 0 | Additional observations/tick. Default 0 = isolated learning. |
 | Social pressure | Φ | 0.0 | Float64 | ≥ 0 | Enforcement gain. 0 = disabled, 1 = baseline. |
 
-### 1.4 Convergence
+### 1.4 Convergence: 3-Layer Thresholds
 
 | Parameter | Default | Type | Notes |
 |-----------|---------|------|-------|
-| convergence\_threshold | 0.95 | Float64 | Fraction for majority |
-| convergence\_window | 50 | Int | Ticks maintaining threshold |
+| thresh\_majority | 0.95 | Float64 | Behavioral layer: majority fraction |
+| thresh\_belief\_error | 0.10 | Float64 | Belief layer: mean \|b\_exp\_A − fraction\_A\| |
+| thresh\_belief\_var | 0.05 | Float64 | Belief layer: Var(b\_exp\_A) |
+| thresh\_crystallised | 0.80 | Float64 | Crystallisation layer: fraction crystallised |
+| thresh\_dominant\_norm | 0.90 | Float64 | Crystallisation layer: fraction holding dominant norm |
+| convergence\_window | 50 | Int | Consecutive ticks all layers must be met |
 
 ---
 
@@ -164,10 +168,10 @@ struct TickMetrics
     num_crystallised::Int               # Agents with r ≠ nothing
     mean_norm_strength::Float64         # Mean σ among crystallised agents (0 if none)
     num_enforcements::Int               # Enforcement events this tick
-    norm_level::Int                     # 0–5 (Section 5)
-    belief_error::Float64               # Mean |b_A_eff - fraction_A| across agents
-    belief_variance::Float64            # Var(b_A_eff) across agents
-    convergence_counter::Int            # Consecutive ticks at ≥ convergence_threshold
+    belief_error::Float64               # Mean |b_exp_A - fraction_A| across agents
+    belief_variance::Float64            # Var(b_exp_A) across agents
+    frac_dominant_norm::Float64         # max(n_norm_A, n_norm_B) / N (0 if none crystallised)
+    convergence_counter::Int            # Consecutive ticks all 3 layers met
 end
 ```
 
@@ -647,20 +651,23 @@ function stage_6_metrics(agents, ts, t, history, params)
     num_cryst = length(crystallised)
     mean_sigma = num_cryst > 0 ? sum(ag.sigma for ag in crystallised) / num_cryst : 0.0
 
-    # Belief accuracy and consensus
-    b_A_values = [ag.b_eff[1] for ag in agents]
+    # Belief accuracy and consensus (using b_exp, NOT b_eff)
+    b_A_values = [ag.b_exp[1] for ag in agents]
     belief_error = sum(abs(b - fraction_A) for b in b_A_values) / N
     mean_b = sum(b_A_values) / N
     belief_var = sum((b - mean_b)^2 for b in b_A_values) / N
 
-    # Norm detection (Section 5)
-    norm_level = detect_norm_level(agents, fraction_A, belief_error,
-                                    belief_var, num_cryst, history, params)
+    # Fraction holding dominant norm
+    n_norm_A = count(ag -> ag.r == 0, agents)
+    n_norm_B = count(ag -> ag.r == 1, agents)
+    frac_dominant_norm = num_cryst > 0 ? max(n_norm_A, n_norm_B) / N : 0.0
 
     # Convergence counter: how many consecutive ticks (including this one)
-    # the majority fraction has been ≥ convergence_threshold.
-    majority_frac = max(fraction_A, 1.0 - fraction_A)
-    if majority_frac >= params.convergence_threshold
+    # all 3 layers have been met.
+    frac_cryst = num_cryst / N
+    layers_met = all_layers_met(fraction_A, belief_error, belief_var,
+                                frac_cryst, frac_dominant_norm, params)
+    if layers_met
         prev = length(history) > 0 ? last(history).convergence_counter : 0
         conv_counter = prev + 1
     else
@@ -669,86 +676,56 @@ function stage_6_metrics(agents, ts, t, history, params)
 
     return TickMetrics(
         t, fraction_A, mean_C, coord_rate, num_cryst,
-        mean_sigma, ts.num_enforcements, norm_level,
-        belief_error, belief_var, conv_counter,
+        mean_sigma, ts.num_enforcements,
+        belief_error, belief_var, frac_dominant_norm, conv_counter,
     )
 end
 ```
 
 ---
 
-## 5. Norm Detection: 6-Level Hierarchy
+## 5. Norm Detection: 3 Continuous Layers + Reference Thresholds
 
-Each level subsumes all lower levels. The norm level is the **highest** level whose
-conditions are currently met.
+Instead of a discrete 6-level hierarchy, the model tracks **3 continuous layers** that
+map to Bicchieri's taxonomy of social norms:
+
+| Layer | Metric(s) | Threshold(s) | Bicchieri mapping |
+|-------|-----------|-------------|-------------------|
+| **Behavioral** | `majority = max(fraction_A, 1 − fraction_A)` | `≥ thresh_majority` (0.95) | Descriptive norm: behavioral regularity |
+| **Belief** | `belief_error`, `belief_variance` | `< thresh_belief_error` (0.10), `< thresh_belief_var` (0.05) | Empirical expectations: experience memory accuracy (using `b_exp_A`, not `b_eff_A`) |
+| **Crystallisation** | `frac_crystallised`, `frac_dominant_norm` | `≥ thresh_crystallised` (0.80), `≥ thresh_dominant_norm` (0.90) | Normative expectations: norm internalisation via DDM |
+
+**Convergence** = all 3 layers past their thresholds for `convergence_window` consecutive ticks.
 
 ```julia
-function count_consecutive_ticks(history, predicate)
-    # Count how many consecutive ticks at the END of history satisfy predicate.
-    # Returns 0 if history is empty or the most recent tick fails the predicate.
-    n = 0
-    for m in Iterators.reverse(history)
-        if predicate(m)
-            n += 1
-        else
-            break
-        end
-    end
-    return n
-end
-
-function detect_norm_level(agents, fraction_A, belief_error, belief_var,
-                           num_crystallised, history, params)
-    N = params.N
-    majority_frac = max(fraction_A, 1.0 - fraction_A)
-
-    # Level 0: NONE (default)
-    level = 0
-
-    # Level 1: BEHAVIORAL — behavioural regularity
-    #   Condition: ≥ 95% play the same strategy, stable for 50 ticks
-    if majority_frac >= 0.95
-        ticks_at_majority = 1 + count_consecutive_ticks(
-            history, m -> max(m.fraction_A, 1 - m.fraction_A) >= 0.95
-        )
-        if ticks_at_majority >= 50
-            level = 1
-        end
-    end
-
-    # Level 2: EMPIRICAL — + accurate beliefs
-    #   Condition: Level 1 AND mean |b_A_eff - actual_fraction_A| < 0.10
-    if level >= 1 && belief_error < 0.10
-        level = 2
-    end
-
-    # Level 3: SHARED — + belief consensus
-    #   Condition: Level 2 AND Var(b_A_eff) < 0.05
-    if level >= 2 && belief_var < 0.05
-        level = 3
-    end
-
-    # Level 4: NORMATIVE — + norm internalisation
-    #   Condition: Level 3 AND ≥ 80% agents have crystallised norms
-    if level >= 3 && num_crystallised / N >= 0.80
-        level = 4
-    end
-
-    # Level 5: INSTITUTIONAL — + self-enforcing stability
-    #   Condition: Level 4 for ≥ 200 consecutive ticks
-    if level >= 4
-        ticks_at_level4 = 1 + count_consecutive_ticks(history, m -> m.norm_level >= 4)
-        if ticks_at_level4 >= 200
-            level = 5
-        end
-    end
-
-    return level
+function all_layers_met(fraction_A, belief_error, belief_var,
+                        frac_crystallised, frac_dominant_norm, params)::Bool
+    majority = max(fraction_A, 1.0 - fraction_A)
+    return majority >= params.thresh_majority &&
+           belief_error < params.thresh_belief_error &&
+           belief_var < params.thresh_belief_var &&
+           frac_crystallised >= params.thresh_crystallised &&
+           frac_dominant_norm >= params.thresh_dominant_norm
 end
 ```
 
-**Important**: Levels 4–5 require `enable_normative = true`. Without normative memory,
-max achievable is Level 3.
+**Key design changes from the previous 6-level hierarchy:**
+
+1. **`b_exp_A` instead of `b_eff_A`**: The belief layer now uses experience-only belief,
+   cleanly separating empirical expectations (what I observe) from normative constraints
+   (what I should do). This prevents the old Levels 2–4 co-occurrence when normative memory
+   was active.
+
+2. **`frac_dominant_norm`**: New metric tracking `max(n_norm_A, n_norm_B) / N` — the
+   fraction of the population holding the most popular crystallised norm. This ensures
+   norms are not just present but aligned.
+
+3. **Independent layers**: Each layer can be tracked independently. The strict subsumption
+   requirement is gone — layers are ANDed only for the final convergence check.
+
+**Important**: The crystallisation layer requires `enable_normative = true`. Without
+normative memory, convergence never triggers because `frac_crystallised = 0` and
+`frac_dominant_norm = 0`.
 
 ---
 
@@ -757,16 +734,16 @@ max achievable is Level 3.
 ```julia
 function check_convergence(history, tick_count, params)::Bool
     tick_count >= 1 || return false
-    return history[tick_count].norm_level >= 5
+    return history[tick_count].convergence_counter >= params.convergence_window
 end
 ```
 
 **Termination conditions** (any one triggers stop):
 1. `tick >= T` (max ticks reached, default T=3000)
-2. `check_convergence() == true` (norm level 5 — institutional norm — achieved)
+2. `check_convergence() == true` (all 3 layers met for `convergence_window` consecutive ticks)
 
-When termination is by convergence, record the tick at which norm level 5 was
-first reached.
+When termination is by convergence, record the tick at which `convergence_counter`
+first reached `convergence_window`.
 
 ---
 
@@ -898,7 +875,7 @@ TICK t:
 │
 └─ STAGE 6: Metrics (read-only)
       Compute fraction_A, mean_C, coordination_rate, num_crystallised,
-      mean_sigma, belief_error, belief_var, norm_level, convergence
+      mean_sigma, belief_error, belief_var, frac_dominant_norm, convergence
 ```
 
 ---
@@ -946,7 +923,7 @@ test the deterministic path directly.
 | D9 | Window from confidence | C=1.0, w\_base=2, w\_max=6 | w=6 |
 | D10 | Confidence update correct | C=0.5, α=0.1 | C\_new = 0.5 + 0.1×0.5 = 0.55 |
 | D11 | Confidence update wrong | C=0.5, β=0.3 | C\_new = 0.5 × 0.7 = 0.35 |
-| D12 | Backward compat: no normative | enable\_normative=false, fixed memory | Stages 4–5 skipped. Agent state has r=nothing, σ=0, a=0 for all ticks. Max norm level = 3. |
+| D12 | Backward compat: no normative | enable\_normative=false, fixed memory | Stages 4–5 skipped. Agent state has r=nothing, σ=0, a=0 for all ticks. frac\_dominant\_norm = 0.0 for all ticks. |
 | D13 | Crystallisation direction | e = +3.1 ≥ θ\_crystal=3.0 | r = 0 (A). σ = σ₀. a = 0. |
 | D14 | Crystallisation direction | e = −3.1 | r = 1 (B). σ = σ₀. a = 0. |
 | D15 | Signal consumed by post-crystallised | Agent with r !== nothing receives pending\_signal | pending\_signal cleared in Stage 4. No DDM update. |
@@ -964,5 +941,5 @@ seeded trials and statistical criteria. Run with `n_trials ≥ 30` unless noted.
 | S4 | Low-C agents crystallise first (H2) | Full model, N=100, 30 trials; record (C at crystallisation, crystallisation tick) | Spearman ρ(C, crystallisation\_tick) > 0 (positive: higher C → later crystallisation), p < 0.05 |
 | S5 | Enforcement accelerates crystallisation (H4) | Compare Φ=1 vs. Φ=0, V=5, N=100, 30 trials | Mean crystallisation tick with Φ=1 < without, Mann-Whitney p < 0.05 |
 | S6 | V=0 DDM is noisy | V=0, Φ=0, N=100, 30 trials; track crystallisation times | CV of crystallisation tick > 0.8 (high dispersion from f\_diff = ±1) |
-| S7 | Full model reaches Level 5 | Dynamic memory, normative, V=5, Φ=1.0, N=100, 2000 ticks, 30 trials | ≥ 80% of trials reach norm\_level = 5 |
-| S8 | No-normative ceiling is Level 3 | enable\_normative=false, dynamic memory, N=100, 1000 ticks, 30 trials | 0% of trials exceed norm\_level = 3 |
+| S7 | Full model converges | Dynamic memory, normative, V=5, Φ=1.0, N=100, 3000 ticks, 30 trials | ≥ 50% of trials converge (all 3 layers met for convergence\_window ticks) |
+| S8 | No-normative has no crystallisation | enable\_normative=false, dynamic memory, N=100, 1000 ticks, 30 trials | 0% of trials have any crystallised agents |

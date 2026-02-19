@@ -1,4 +1,42 @@
 # ──────────────────────────────────────────────────────────────
+# Level milestone extraction
+# ──────────────────────────────────────────────────────────────
+
+"""
+    first_tick_per_layer(history::Vector{TickMetrics}, N::Int, params::SimulationParams)
+
+Scan history and return a NamedTuple with the first tick each layer threshold
+was met, plus when all layers were simultaneously met. 0 = never reached.
+"""
+function first_tick_per_layer(history::Vector{TickMetrics}, N::Int, params::SimulationParams)
+    t_behavioral = 0
+    t_belief = 0
+    t_crystal = 0
+    t_all_met = 0
+
+    for m in history
+        majority = max(m.fraction_A, 1.0 - m.fraction_A)
+        frac_cryst = m.num_crystallised / N
+
+        if t_behavioral == 0 && majority >= params.thresh_majority
+            t_behavioral = m.tick
+        end
+        if t_belief == 0 && m.belief_error < params.thresh_belief_error && m.belief_variance < params.thresh_belief_var
+            t_belief = m.tick
+        end
+        if t_crystal == 0 && frac_cryst >= params.thresh_crystallised && m.frac_dominant_norm >= params.thresh_dominant_norm
+            t_crystal = m.tick
+        end
+        if t_all_met == 0 && all_layers_met(m.fraction_A, m.belief_error, m.belief_variance,
+                                             frac_cryst, m.frac_dominant_norm, params)
+            t_all_met = m.tick
+        end
+    end
+
+    return (behavioral=t_behavioral, belief=t_belief, crystal=t_crystal, all_met=t_all_met)
+end
+
+# ──────────────────────────────────────────────────────────────
 # Sweep Configuration
 # ──────────────────────────────────────────────────────────────
 
@@ -32,18 +70,22 @@ Extract a compact TrialSummary from a full simulation result.
 function summarize(result::SimulationResult)
     history = result.history
     tc = result.tick_count
+    params = result.params
 
     if tc == 0
-        return TrialSummary(0, 0, 0.5, 0.5, 0, 0.0, 0)
+        return TrialSummary(0, false, 0.5, 0.5, 0, 0.0, 0.0, 0)
     end
 
     last_m = history[tc]
 
-    # Find convergence tick (first tick norm level 5 was reached)
+    # Check convergence: convergence_counter >= convergence_window
+    converged = last_m.convergence_counter >= params.convergence_window
+
+    # Find convergence tick (first tick convergence_counter reached window)
     conv_tick = 0
-    if last_m.norm_level >= 5
+    if converged
         for i in 1:tc
-            if history[i].norm_level >= 5
+            if history[i].convergence_counter >= params.convergence_window
                 conv_tick = history[i].tick
                 break
             end
@@ -52,11 +94,12 @@ function summarize(result::SimulationResult)
 
     return TrialSummary(
         conv_tick,
-        last_m.norm_level,
+        converged,
         last_m.fraction_A,
         last_m.mean_confidence,
         last_m.num_crystallised,
         last_m.mean_norm_strength,
+        last_m.frac_dominant_norm,
         tc,
     )
 end
@@ -133,11 +176,12 @@ function save_sweep_csv(filepath::String, sr::SweepResult)
                     Phi = sr.Phi_vals[ip],
                     trial = it,
                     convergence_tick = s.convergence_tick,
-                    final_norm_level = s.final_norm_level,
+                    converged = s.converged,
                     final_fraction_A = s.final_fraction_A,
                     final_mean_confidence = s.final_mean_confidence,
                     final_num_crystallised = s.final_num_crystallised,
                     final_mean_norm_strength = s.final_mean_norm_strength,
+                    final_frac_dominant_norm = s.final_frac_dominant_norm,
                     total_ticks = s.total_ticks,
                 ))
             end

@@ -205,7 +205,7 @@ using DualMemoryABM
         for m in result.history
             @test m.num_crystallised == 0
             @test m.num_enforcements == 0
-            @test m.norm_level <= 3
+            @test m.frac_dominant_norm == 0.0
         end
     end
 

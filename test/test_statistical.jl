@@ -108,23 +108,25 @@ end
 
     n_trials = 30
 
-    # ── S1: Dynamic memory accelerates convergence ──
+    # ── S1: Dynamic memory accelerates behavioral convergence ──
     @testset "S1: Dynamic memory accelerates convergence" begin
+        # Measure time to behavioral layer threshold (≥95% majority).
+        # Dynamic window (default w_base=2, w_max=6) should reach it faster than fixed (w=4).
         conv_dynamic = Int[]
         for trial in 1:n_trials
-            p = SimulationParams(N=100, T=1000, seed=trial * 1000 + 1)
+            p = SimulationParams(N=100, T=3000, seed=trial * 1000 + 1)
             result = run!(p)
-            s = summarize(result)
-            push!(conv_dynamic, s.convergence_tick > 0 ? s.convergence_tick : p.T)
+            layers = first_tick_per_layer(result.history, p.N, p)
+            push!(conv_dynamic, layers.behavioral > 0 ? layers.behavioral : p.T)
         end
 
         conv_fixed = Int[]
         for trial in 1:n_trials
-            p = SimulationParams(N=100, T=1000, seed=trial * 1000 + 2,
+            p = SimulationParams(N=100, T=3000, seed=trial * 1000 + 2,
                                   w_base=4, w_max=4)
             result = run!(p)
-            s = summarize(result)
-            push!(conv_fixed, s.convergence_tick > 0 ? s.convergence_tick : p.T)
+            layers = first_tick_per_layer(result.history, p.N, p)
+            push!(conv_fixed, layers.behavioral > 0 ? layers.behavioral : p.T)
         end
 
         _, _, p_val = mann_whitney_u_onesided(Float64.(conv_dynamic), Float64.(conv_fixed))
@@ -314,41 +316,40 @@ end
         end
     end
 
-    # ── S7: Full model reaches Level 5 ──
-    @testset "S7: Full model reaches Level 5" begin
-        level5_count = 0
+    # ── S7: Full model converges ──
+    @testset "S7: Full model converges" begin
+        converged_count = 0
 
         for trial in 1:n_trials
             p = SimulationParams(N=100, T=3000, seed=trial * 7000 + 1,
                                   enable_normative=true, V=5, Phi=1.0)
             result = run!(p)
 
-            max_level = maximum(m.norm_level for m in result.history)
-            if max_level >= 5
-                level5_count += 1
+            s = summarize(result)
+            if s.converged
+                converged_count += 1
             end
         end
 
-        # ≥ 50% of trials should reach Level 5 within 2000 ticks
-        @test level5_count >= n_trials * 0.5
+        # ≥ 50% of trials should converge
+        @test converged_count >= n_trials * 0.5
     end
 
-    # ── S8: No-normative ceiling is Level 3 ──
-    @testset "S8: No-normative ceiling is Level 3" begin
-        above_3_count = 0
+    # ── S8: No-normative never has crystallisation ──
+    @testset "S8: No-normative has no crystallisation" begin
+        any_crystal = 0
 
         for trial in 1:n_trials
             p = SimulationParams(N=100, T=1000, seed=trial * 8000 + 1,
                                   enable_normative=false)
             result = run!(p)
 
-            max_level = maximum(m.norm_level for m in result.history)
-            if max_level > 3
-                above_3_count += 1
+            if any(m.num_crystallised > 0 for m in result.history)
+                any_crystal += 1
             end
         end
 
-        @test above_3_count == 0
+        @test any_crystal == 0
     end
 
 end

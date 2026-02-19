@@ -167,9 +167,9 @@ struct TickMetrics
     num_crystallised::Int
     mean_norm_strength::Float64
     num_enforcements::Int
-    norm_level::Int
     belief_error::Float64
     belief_variance::Float64
+    frac_dominant_norm::Float64
     convergence_counter::Int
 end
 
@@ -190,10 +190,11 @@ end
 
 struct TrialSummary
     convergence_tick::Int    # 0 if no convergence
-    final_norm_level::Int
+    converged::Bool
     final_fraction_A::Float64
     final_mean_confidence::Float64
     final_num_crystallised::Int
     final_mean_norm_strength::Float64
+    final_frac_dominant_norm::Float64
     total_ticks::Int
 end

@@ -412,58 +412,20 @@ function count_consecutive_ticks(history::Vector{TickMetrics}, tick_count::Int, 
 end
 
 """
-    detect_norm_level(agents, fraction_A, belief_error, belief_var,
-                      num_crystallised, history, tick_count, params)
+    all_layers_met(fraction_A, belief_error, belief_var,
+                   frac_crystallised, frac_dominant_norm, params)::Bool
 
-Detect the highest norm level (0-5) currently achieved.
+Check whether all 3 continuous layers exceed their convergence thresholds.
 """
-function detect_norm_level(agents::Vector{AgentState}, fraction_A::Float64,
-                            belief_error::Float64, belief_var::Float64,
-                            num_crystallised::Int, history::Vector{TickMetrics},
-                            tick_count::Int, params::SimulationParams)
-    N = params.N
-    majority_frac = max(fraction_A, 1.0 - fraction_A)
-
-    level = 0
-
-    # Level 1: BEHAVIORAL — ≥ 95% play same, stable for 50 ticks
-    if majority_frac >= 0.95
-        ticks_at_majority = 1 + count_consecutive_ticks(
-            history, tick_count,
-            m -> max(m.fraction_A, 1.0 - m.fraction_A) >= 0.95
-        )
-        if ticks_at_majority >= 50
-            level = 1
-        end
-    end
-
-    # Level 2: EMPIRICAL — Level 1 AND belief_error < 0.10
-    if level >= 1 && belief_error < 0.10
-        level = 2
-    end
-
-    # Level 3: SHARED — Level 2 AND belief_var < 0.05
-    if level >= 2 && belief_var < 0.05
-        level = 3
-    end
-
-    # Level 4: NORMATIVE — Level 3 AND ≥ 80% crystallised
-    if level >= 3 && num_crystallised / N >= 0.80
-        level = 4
-    end
-
-    # Level 5: INSTITUTIONAL — Level 4 for ≥ 200 consecutive ticks
-    if level >= 4
-        ticks_at_level4 = 1 + count_consecutive_ticks(
-            history, tick_count,
-            m -> m.norm_level >= 4
-        )
-        if ticks_at_level4 >= 200
-            level = 5
-        end
-    end
-
-    return level
+function all_layers_met(fraction_A::Float64, belief_error::Float64, belief_var::Float64,
+                        frac_crystallised::Float64, frac_dominant_norm::Float64,
+                        params::SimulationParams)::Bool
+    majority = max(fraction_A, 1.0 - fraction_A)
+    return majority >= params.thresh_majority &&
+           belief_error < params.thresh_belief_error &&
+           belief_var < params.thresh_belief_var &&
+           frac_crystallised >= params.thresh_crystallised &&
+           frac_dominant_norm >= params.thresh_dominant_norm
 end
 
 """
@@ -513,29 +475,42 @@ function stage_6_metrics(agents::Vector{AgentState}, ws::TickWorkspace,
     end
     mean_sigma = num_cryst > 0 ? sum_sigma / num_cryst : 0.0
 
-    # Belief accuracy and consensus
+    # Belief accuracy and consensus (using b_exp_A, not b_eff_A)
     sum_error = 0.0
     sum_b = 0.0
     for i in 1:N
-        sum_error += abs(agents[i].b_eff_A - fraction_A)
-        sum_b += agents[i].b_eff_A
+        sum_error += abs(agents[i].b_exp_A - fraction_A)
+        sum_b += agents[i].b_exp_A
     end
     belief_error = sum_error / N
     mean_b = sum_b / N
 
     sum_var = 0.0
     for i in 1:N
-        sum_var += (agents[i].b_eff_A - mean_b)^2
+        sum_var += (agents[i].b_exp_A - mean_b)^2
     end
     belief_var = sum_var / N
 
-    # Norm detection
-    norm_level = detect_norm_level(agents, fraction_A, belief_error, belief_var,
-                                    num_cryst, history, tick_count, params)
+    # Fraction of crystallised agents holding the dominant norm
+    frac_dominant_norm = 0.0
+    if num_cryst > 0
+        n_norm_A = 0
+        n_norm_B = 0
+        for i in 1:N
+            if agents[i].r == STRATEGY_A
+                n_norm_A += 1
+            elseif agents[i].r == STRATEGY_B
+                n_norm_B += 1
+            end
+        end
+        frac_dominant_norm = max(n_norm_A, n_norm_B) / N
+    end
 
-    # Convergence counter
-    majority_frac = max(fraction_A, 1.0 - fraction_A)
-    if majority_frac >= params.convergence_threshold
+    # Convergence counter: all 3 layers met
+    frac_crystallised = num_cryst / N
+    layers_met = all_layers_met(fraction_A, belief_error, belief_var,
+                                frac_crystallised, frac_dominant_norm, params)
+    if layers_met
         prev = tick_count > 0 ? history[tick_count].convergence_counter : 0
         conv_counter = prev + 1
     else
@@ -544,7 +519,7 @@ function stage_6_metrics(agents::Vector{AgentState}, ws::TickWorkspace,
 
     return TickMetrics(
         t, fraction_A, mean_C, coord_rate, num_cryst,
-        mean_sigma, ws.num_enforcements, norm_level,
-        belief_error, belief_var, conv_counter,
+        mean_sigma, ws.num_enforcements,
+        belief_error, belief_var, frac_dominant_norm, conv_counter,
     )
 end
