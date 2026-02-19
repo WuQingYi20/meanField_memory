@@ -33,7 +33,7 @@
 | Parameter | Symbol | Default | Type | Constraint | Source |
 |-----------|--------|---------|------|------------|--------|
 | Number of agents | N | 100 | Int | even, ≥ 2 | — |
-| Number of ticks | T | 1000 | Int | ≥ 1 | — |
+| Number of ticks | T | 3000 | Int | ≥ 1 | — |
 | Random seed | seed | nothing | Union{Int, Nothing} | — | For reproducibility |
 | Confidence increase | α | 0.1 | Float64 | (0, 1) | Slovic 1993 |
 | Confidence decrease | β | 0.3 | Float64 | (0, 1), β > α | Slovic 1993 |
@@ -755,24 +755,18 @@ max achievable is Level 3.
 ## 6. Convergence and Termination
 
 ```julia
-function check_convergence(history, params)::Bool
-    if length(history) < params.convergence_window
-        return false
-    end
-    recent = history[end-params.convergence_window+1:end]
-    return all(
-        m -> max(m.fraction_A, 1.0 - m.fraction_A) >= params.convergence_threshold,
-        recent
-    )
+function check_convergence(history, tick_count, params)::Bool
+    tick_count >= 1 || return false
+    return history[tick_count].norm_level >= 5
 end
 ```
 
 **Termination conditions** (any one triggers stop):
-1. `tick >= T` (max ticks reached)
-2. `check_convergence() == true` (stable consensus achieved)
+1. `tick >= T` (max ticks reached, default T=3000)
+2. `check_convergence() == true` (norm level 5 — institutional norm — achieved)
 
-When termination is by convergence, record the convergence tick (first tick of
-the convergence window).
+When termination is by convergence, record the tick at which norm level 5 was
+first reached.
 
 ---
 
