@@ -605,13 +605,19 @@ High-confidence agents behave consistently $\to$ low-confidence agents observe c
 
 \subsection{Predictions}
 
-We measure norm emergence on a six-level scale: behavioural regularity (Level~1), accurate beliefs (2), belief consensus (3), norm internalisation (4), and institutional stability (5). Levels~4--5 require normative memory.
+We measure norm emergence on three continuous layers that map to Bicchieri's taxonomy:
+\begin{enumerate}[itemsep=2pt]
+    \item \textbf{Behavioral layer} $\leftrightarrow$ descriptive norm (behavioural regularity): majority fraction $\geq 0.95$.
+    \item \textbf{Belief layer} $\leftrightarrow$ empirical expectations (experience memory accuracy, using $b_{\mathrm{exp}}$ not $b_{\mathrm{eff}}$): mean belief error $< 0.10$ and belief variance $< 0.05$.
+    \item \textbf{Crystallisation layer} $\leftrightarrow$ normative expectations (norm internalisation via DDM): $\geq 80\%$ crystallised with $\geq 90\%$ holding the dominant norm.
+\end{enumerate}
+Convergence = all three layers past thresholds for 50 consecutive ticks. The crystallisation layer requires normative memory.
 
 \begin{itemize}[itemsep=2pt]
-    \item \emph{Baseline}: Slowest convergence. Max: Level~1 (behavioural regularity only).
-    \item \emph{Normative only}: Norms form but lack lock-in stability. Max: Level~4, fragile.
-    \item \emph{Lock-in only}: Stable conventions, not norms. Max: Level~3.
-    \item \emph{Full model}: Fastest and most stable. Max: Level~5 (institutional).
+    \item \emph{Baseline}: Slowest convergence. Behavioral and belief layers only; never converges (crystallisation blocked).
+    \item \emph{Normative only}: Norms form but lack lock-in stability. All layers reachable but fragile.
+    \item \emph{Lock-in only}: Stable conventions, not norms. Behavioral and belief layers only; never converges.
+    \item \emph{Full model}: Fastest and most stable. All three layers converge.
 \end{itemize}
 
 % =====================================================================

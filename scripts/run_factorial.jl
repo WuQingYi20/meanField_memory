@@ -9,7 +9,7 @@
 #   D: Full Model     — Dynamic window [2,6],  normative ON
 #
 # All conditions use V=0, Phi=0.0, N=100, T=3000, 50 trials each.
-# End condition: norm level 5 (institutional) or T reached.
+# End condition: all 3 layers converged for convergence_window ticks, or T reached.
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
@@ -51,8 +51,8 @@ function run_factorial()
             result = run!(p)
             s = summarize(result)
 
-            # Track max norm level across entire history
-            max_level = maximum(m.norm_level for m in result.history)
+            # First tick each layer threshold was met (0 = never)
+            layers = first_tick_per_layer(result.history, p.N, p)
 
             push!(rows, (
                 condition               = label,
@@ -61,12 +61,16 @@ function run_factorial()
                 enable_normative        = enorm,
                 trial                   = trial,
                 convergence_tick        = s.convergence_tick,
-                final_norm_level        = s.final_norm_level,
-                max_norm_level          = max_level,
+                converged               = s.converged,
+                first_tick_behavioral   = layers.behavioral,
+                first_tick_belief       = layers.belief,
+                first_tick_crystal      = layers.crystal,
+                first_tick_all_met      = layers.all_met,
                 final_fraction_A        = s.final_fraction_A,
                 final_mean_confidence   = s.final_mean_confidence,
                 final_num_crystallised  = s.final_num_crystallised,
                 final_mean_norm_strength = s.final_mean_norm_strength,
+                final_frac_dominant_norm = s.final_frac_dominant_norm,
                 total_ticks             = s.total_ticks,
             ))
         end

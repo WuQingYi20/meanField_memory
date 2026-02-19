@@ -30,8 +30,12 @@ Base.@kwdef struct SimulationParams
     V::Int = 0
     Phi::Float64 = 0.0
 
-    # Convergence
-    convergence_threshold::Float64 = 0.95
+    # Convergence: 3-layer thresholds
+    thresh_majority::Float64 = 0.95
+    thresh_belief_error::Float64 = 0.10
+    thresh_belief_var::Float64 = 0.05
+    thresh_crystallised::Float64 = 0.80
+    thresh_dominant_norm::Float64 = 0.90
     convergence_window::Int = 50
 end
 
@@ -68,7 +72,11 @@ function validate(params::SimulationParams)
     params.V >= 0 || throw(ArgumentError("V must be ≥ 0, got $(params.V)"))
     params.Phi >= 0 || throw(ArgumentError("Phi must be ≥ 0, got $(params.Phi)"))
 
-    0 < params.convergence_threshold <= 1 || throw(ArgumentError("convergence_threshold must be in (0,1], got $(params.convergence_threshold)"))
+    0 < params.thresh_majority <= 1 || throw(ArgumentError("thresh_majority must be in (0,1], got $(params.thresh_majority)"))
+    0 < params.thresh_belief_error <= 1 || throw(ArgumentError("thresh_belief_error must be in (0,1], got $(params.thresh_belief_error)"))
+    0 < params.thresh_belief_var <= 1 || throw(ArgumentError("thresh_belief_var must be in (0,1], got $(params.thresh_belief_var)"))
+    0 < params.thresh_crystallised <= 1 || throw(ArgumentError("thresh_crystallised must be in (0,1], got $(params.thresh_crystallised)"))
+    0 < params.thresh_dominant_norm <= 1 || throw(ArgumentError("thresh_dominant_norm must be in (0,1], got $(params.thresh_dominant_norm)"))
     params.convergence_window >= 1 || throw(ArgumentError("convergence_window must be ≥ 1, got $(params.convergence_window)"))
 
     return nothing
@@ -91,7 +99,11 @@ function to_namedtuple(params::SimulationParams)
         alpha_sigma = params.alpha_sigma, theta_enforce = params.theta_enforce,
         k = params.k, gamma_signal = params.gamma_signal,
         V = params.V, Phi = params.Phi,
-        convergence_threshold = params.convergence_threshold,
+        thresh_majority = params.thresh_majority,
+        thresh_belief_error = params.thresh_belief_error,
+        thresh_belief_var = params.thresh_belief_var,
+        thresh_crystallised = params.thresh_crystallised,
+        thresh_dominant_norm = params.thresh_dominant_norm,
         convergence_window = params.convergence_window,
     )
 end
