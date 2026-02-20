@@ -28,6 +28,15 @@ include("simulation.jl")
 # ── Parameter sweep ──
 include("sweep.jl")
 
+# ── EWA Baseline ──
+include("ewa_types.jl")
+include("ewa_init.jl")
+include("ewa_stages.jl")
+include("ewa_simulation.jl")
+
+# ── Lifecycle Benchmark ──
+include("lifecycle.jl")
+
 # ── Exports ──
 export
     # Constants
@@ -58,6 +67,18 @@ export
 
     # RingBuffer helpers
     capacity, recent, count_strategy_A,
-    compute_b_exp_A
+    compute_b_exp_A,
+
+    # EWA Baseline
+    EWAParams, EWAAgent, EWAWorkspace,
+    ewa_initialize, ewa_create_workspace,
+    ewa_pair_and_act!, ewa_update_attractions!, _ewa_update_prob!, ewa_metrics,
+    ewa_run_tick!, ewa_run!, ewa_check_convergence, ewa_first_tick_per_layer,
+
+    # Lifecycle Benchmark
+    SYMMETRY_BREAK_THRESHOLD, STEADY_MAJORITY_THRESHOLD, STEADY_WINDOW, BURST_THRESHOLD,
+    LifecycleMetrics, LifecycleTracker,
+    override_actions!, snapshot_crystallised, compute_norm_metrics,
+    update_tracker!, finalize_tracker
 
 end # module

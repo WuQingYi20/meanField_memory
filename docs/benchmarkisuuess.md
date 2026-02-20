@@ -1,0 +1,2 @@
+你的扰动设计把"行为冲击"和"摧毁内部状态"混在了一起，这让你没法分清恢复到底靠的是什么。如果你把被扰动agent的norm、FIFO、confidence全部重置，DM_full恢复快可能只是因为周围crystallised agents enforce了一群白纸状态的agent——这证明的是enforcement有用，不是规范有韧性。更干净的做法是让扰动只发生在行为层面：被选中的agent在接下来K个ticks被强制打少数策略，内部状态完全保留，K ticks后释放让它们自由行动。这样所有模型面对的是同一种扰动，差异完全来自各自的内部恢复机制——DM_full的norm strength和compliance会自动把agent拉回来，DM_base要靠FIFO慢慢冲刷，EWA要靠attraction重新学习。
+同样的逻辑也解决了EWA扰动等价性的问题。现在你要分别设计perturb_dm!和perturb_ewa!，对"等价重置"的语义很难对齐——重置attraction到初始值和清空FIFO在信息损失上真的等价吗？行为层面的强制扰动是模型无关的，不需要触碰任何模型的内部状态，对比就自然公平了。
