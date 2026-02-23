@@ -34,6 +34,15 @@ include("ewa_init.jl")
 include("ewa_stages.jl")
 include("ewa_simulation.jl")
 
+# ── ADWIN2 Data Structure ──
+include("adwin.jl")
+
+# ── EWA-ADWIN (Adaptive Windowing) ──
+include("ewa_adwin_types.jl")
+include("ewa_adwin_init.jl")
+include("ewa_adwin_stages.jl")
+include("ewa_adwin_simulation.jl")
+
 # ── Lifecycle Benchmark ──
 include("lifecycle.jl")
 
@@ -74,6 +83,17 @@ export
     ewa_initialize, ewa_create_workspace,
     ewa_pair_and_act!, ewa_update_attractions!, _ewa_update_prob!, ewa_metrics,
     ewa_run_tick!, ewa_run!, ewa_check_convergence, ewa_first_tick_per_layer,
+
+    # ADWIN2
+    ADWIN2, adwin_add!, adwin_mean, adwin_count, adwin_reset!,
+
+    # EWA-ADWIN
+    EWAADWINParams, EWAADWINAgent,
+    ewa_adwin_initialize,
+    ewa_adwin_pair_and_act!, ewa_adwin_update_attractions!,
+    _ewa_adwin_update_prob!, ewa_adwin_metrics,
+    ewa_adwin_run_tick!, ewa_adwin_run!, ewa_adwin_check_convergence,
+    ewa_adwin_first_tick_per_layer,
 
     # Lifecycle Benchmark
     SYMMETRY_BREAK_THRESHOLD, STEADY_MAJORITY_THRESHOLD, STEADY_WINDOW, BURST_THRESHOLD,
