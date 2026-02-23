@@ -9,4 +9,6 @@ using DualMemoryABM
     include("test_deterministic.jl")
     include("test_statistical.jl")
     include("test_ewa.jl")
+    include("test_adwin.jl")
+    include("test_ewa_adwin.jl")
 end
