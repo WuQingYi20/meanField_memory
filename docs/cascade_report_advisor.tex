@@ -1,0 +1,429 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{float}
+
+\title{Dual-Memory Norm Emergence Model:\\
+Ablation Results and Cascade Mechanism Analysis}
+\author{Preliminary Report}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%% ════════════════════════════════════════════════════════════════
+\section{Model Description}
+\label{sec:model}
+%% ════════════════════════════════════════════════════════════════
+
+\subsection{Environment and task}
+
+$N$ agents (even) repeatedly play a symmetric pure coordination game with strategy set $S = \{A, B\}$. There is no payoff asymmetry---$A$ and $B$ are \emph{a priori} equivalent. Each tick proceeds through a synchronous six-stage pipeline.
+
+\paragraph{Information structure.} At each tick, agents are randomly paired via uniform permutation. Each agent observes only its partner's chosen strategy (and optionally $V$ additional strategies sampled from other pairs). No agent ever observes any global statistic. All information is local.
+
+\subsection{Agent state}
+
+Each agent carries two memory systems, a confidence tracker, and derived action variables:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Component & Variables & Role \\
+\midrule
+Experiential memory & FIFO buffer, $b_{\exp}$, $w$ & Track partner action frequencies \\
+Confidence & $C \in [0,1]$ & Prediction accuracy tracker \\
+Normative memory & $r$, $\sigma$, $a$, $e$ & Norm rule, strength, anomaly, DDM evidence \\
+Derived & compliance $= \sigma^k$, $b_{\mathrm{eff}}$ & Action probability \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Per-tick pipeline}
+
+\begin{enumerate}[nosep]
+\item \textbf{Stage 1: Pair and act.} Random permutation forms $N/2$ pairs. Each agent computes an effective belief $b_{\mathrm{eff}}$ and samples an action via probability matching ($P(\text{play } A) = b_{\mathrm{eff}}^A$). Each agent also makes a MAP prediction of its partner's action.
+
+\item \textbf{Stage 2: Observe and update experiential memory.} The partner's action is pushed into a FIFO circular buffer (capacity $= w_{\max}$). The experiential belief is recomputed from the most recent $w$ entries:
+\begin{equation}
+b_{\exp}^A = \frac{\#A \text{ in last } w \text{ entries}}{w}
+\label{eq:bexp}
+\end{equation}
+Additionally, $V$ strategies are sampled from other pairs for the normative observation set $O_i(t)$.
+
+\item \textbf{Stage 3: Confidence update.} The agent compares its MAP prediction to the partner's actual action:
+\begin{equation}
+C \leftarrow \begin{cases}
+C + \alpha(1 - C) & \text{if prediction correct (additive increase)} \\
+C(1 - \beta) & \text{if prediction wrong (multiplicative decay)}
+\end{cases}
+\label{eq:confidence}
+\end{equation}
+The memory window is then recomputed: $w = w_{\mathrm{base}} + \lfloor C \cdot (w_{\max} - w_{\mathrm{base}}) \rfloor$. High confidence $\to$ long memory; low confidence $\to$ short memory.
+
+\item \textbf{Stage 4: Normative update.} This stage branches based on crystallisation state.
+
+\item \textbf{Stage 5: Enforcement.} (Disabled in current experiments with $\Phi = 0$.)
+
+\item \textbf{Stage 6: Metrics.} Read-only computation of population-level statistics.
+\end{enumerate}
+
+\subsection{Experiential memory: mean-field estimation}
+\label{sec:exp}
+
+Since partners are drawn by random pairing, each observation is an independent sample from the population's action distribution. The FIFO buffer stores $w \in [w_{\mathrm{base}}, w_{\max}]$ such samples, so $b_{\exp}^A$ (Eq.~\ref{eq:bexp}) is an unbiased but noisy estimator of the true population frequency $f_A$:
+\begin{equation}
+\mathbb{E}[b_{\exp}^A] = f_A, \qquad \mathrm{Var}(b_{\exp}^A) = \frac{f_A(1 - f_A)}{w}
+\end{equation}
+
+With $w \in [2, 6]$, this variance is substantial. Convergence under experiential memory alone is a \emph{diffusion} process: each agent independently drifts toward the majority, one noisy sample at a time.
+
+\subsection{Normative memory: the DDM-crystallisation system}
+\label{sec:norm}
+
+Normative memory operates in two distinct modes, forming a state machine:
+
+\begin{center}
+\begin{tabular}{@{}c@{}}
+\texttt{NO NORM} $\xrightarrow{|e| \geq \theta_{\mathrm{crystal}}}$ \texttt{HAS NORM}
+$\xrightarrow[\sigma < \sigma_{\min}]{\text{crisis} \to \text{dissolve}}$
+\texttt{NO NORM}
+\end{tabular}
+\end{center}
+
+\paragraph{Pre-crystallisation (DDM).} An evidence accumulator $e$ integrates social observations:
+\begin{equation}
+e \leftarrow e + \underbrace{(1 - C) \cdot f_{\mathrm{diff}}}_{\text{confidence-gated drift}} + \underbrace{\mathcal{N}(0, \sigma_{\mathrm{noise}}^2)}_{\text{noise}}
+\label{eq:ddm}
+\end{equation}
+where $f_{\mathrm{diff}} = (n_A - n_B)/|O_i|$ measures the signed consistency of the observation set $O_i(t)$. When $|e| \geq \theta_{\mathrm{crystal}}$, the agent \emph{crystallises} a norm: $r = A$ if $e > 0$, $r = B$ if $e < 0$. The norm strength is initialised to $\sigma_0$.
+
+Key property: the drift is gated by $(1 - C)$. Low-confidence agents (uncertain about the environment) accumulate evidence faster and crystallise sooner.
+
+At a symmetric 50-50 population ($f_{\mathrm{diff}} = 0$), the accumulator performs a pure random walk. The expected crystallisation time is $\theta_{\mathrm{crystal}}^2 / \sigma_{\mathrm{noise}}^2$. When the population is asymmetric (e.g., 70\% $A$), there is a positive drift and crystallisation occurs rapidly, predominantly toward the majority direction.
+
+\paragraph{Post-crystallisation (norm maintenance).} Once crystallised, the agent monitors conformity and violations among its observations:
+\begin{itemize}[nosep]
+\item \textbf{Conformity} (observed action matches norm $r$): $\sigma$ increases via $\sigma \leftarrow \sigma + \alpha_\sigma(1 - \sigma)$.
+\item \textbf{Violation} (observed action $\neq r$): anomaly counter $a$ increments.
+\item \textbf{Crisis}: when $a \geq \theta_{\mathrm{crisis}}$, the norm weakens: $\sigma \leftarrow \lambda_{\mathrm{crisis}} \cdot \sigma$, and $a$ resets to 0.
+\item \textbf{Dissolution}: if $\sigma < \sigma_{\min}$ after a crisis, the norm is abandoned. The agent returns to the DDM ($e = 0$) and may crystallise a new norm---potentially for the opposite strategy.
+\end{itemize}
+
+\subsection{Effective belief: the blending equation}
+\label{sec:blend}
+
+A crystallised agent's action probability blends the norm direction with the experiential estimate:
+\begin{equation}
+b_{\mathrm{eff}}^A = \underbrace{\sigma^k}_{\text{compliance}} \cdot b_{\mathrm{norm}}^A + (1 - \sigma^k) \cdot b_{\exp}^A
+\label{eq:beff}
+\end{equation}
+where $b_{\mathrm{norm}}^A = 1$ if $r = A$ and $0$ if $r = B$, and $k$ is a compliance exponent. For an $A$-crystallised agent with $\sigma = 0.8$, $k = 2$: compliance $= 0.64$, so $b_{\mathrm{eff}}^A = 0.64 + 0.36 \cdot b_{\exp}^A$. Even if $b_{\exp}^A = 0.5$, the agent acts $A$ with probability $0.82$.
+
+An uncrystallised agent simply uses $b_{\mathrm{eff}} = b_{\exp}$ (compliance $= 0$).
+
+\subsection{Parameters}
+
+\begin{table}[H]
+\centering
+\caption{Key model parameters and default values.}
+\label{tab:params}
+\small
+\begin{tabular}{@{}llrl@{}}
+\toprule
+Symbol & Meaning & Default & Source \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Experiential layer}} \\
+$N$ & Population size & 100 & --- \\
+$\alpha$ & Confidence increase rate & 0.1 & Slovic 1993 \\
+$\beta$ & Confidence decrease rate & 0.3 & Slovic 1993 \\
+$C_0$ & Initial confidence & 0.5 & --- \\
+$w_{\mathrm{base}}, w_{\max}$ & Memory window range & 2, 6 & Hertwig 2010 \\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Normative layer}} \\
+$\sigma_{\mathrm{noise}}$ & DDM noise & 0.1 & Germar 2014 \\
+$\theta_{\mathrm{crystal}}$ & Crystallisation threshold & 3.0 & calibration \\
+$\sigma_0$ & Initial norm strength & 0.8 & calibration \\
+$\theta_{\mathrm{crisis}}$ & Crisis threshold (anomaly count) & 10 & calibration \\
+$\lambda_{\mathrm{crisis}}$ & Crisis decay factor & 0.3 & calibration \\
+$\sigma_{\min}$ & Dissolution threshold & 0.1 & calibration \\
+$\alpha_\sigma$ & Strengthening rate & 0.005 & Will 2023 \\
+$k$ & Compliance exponent & 2.0 & calibration \\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Environment}} \\
+$V$ & Additional observations/tick & 0 & --- \\
+$\Phi$ & Enforcement gain & 0.0 & disabled \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Initialisation}
+
+All agents start identical: $b_{\exp} = (0.5, 0.5)$, $C = C_0$, $r = \text{none}$, $\sigma = 0$, $e = 0$. The population is perfectly symmetric with respect to $A$ and $B$.
+
+%% ════════════════════════════════════════════════════════════════
+\section{Ablation Experiment}
+\label{sec:ablation}
+%% ════════════════════════════════════════════════════════════════
+
+\subsection{Experimental design}
+
+To isolate each memory system's contribution, we ran a $3 \times 2$ factorial:
+
+\begin{itemize}[nosep]
+\item \textbf{Factor 1---Experiential memory level} (3 levels):
+  \begin{itemize}[nosep]
+    \item \emph{None}: $b_{\exp}$ reset to 0.5 after every tick (no individual learning).
+    \item \emph{Fixed}: FIFO learning with fixed window $w = 5$.
+    \item \emph{Dynamic}: FIFO learning with confidence-driven window $w \in [2, 6]$.
+  \end{itemize}
+\item \textbf{Factor 2---Normative memory}: OFF / ON.
+\end{itemize}
+
+Crossed with three population sizes $N \in \{20, 100, 500\}$. Each cell was run for 100 independent trials ($T = 3000$ ticks max).
+
+\paragraph{Convergence criterion.} Behavioural majority $\geq 0.95$ sustained for 50 consecutive ticks.
+
+\subsection{Results}
+
+\begin{table}[H]
+\centering
+\caption{Convergence rate (out of 100 trials) and mean convergence tick.}
+\label{tab:ablation}
+\begin{tabular}{@{}ll crc crc crc@{}}
+\toprule
+& & \multicolumn{3}{c}{$N = 20$} & \multicolumn{3}{c}{$N = 100$} & \multicolumn{3}{c}{$N = 500$} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11}
+Exp.\ Level & Norm & Rate & Tick & & Rate & Tick & & Rate & Tick & \\
+\midrule
+None    & OFF & 0/100  & ---   && 0/100  & ---    && 0/100  & ---    \\
+None    & ON  & 0/100  & ---   && 0/100  & ---    && 0/100  & ---    \\
+\addlinespace
+Fixed   & OFF & 100 & 232  && 91 & 1125   && 24 & 2079   \\
+Fixed   & ON  & 100 & 30   && 100 & 42    && 100 & 54    \\
+\addlinespace
+Dynamic & OFF & 100 & 76   && 100 & 231   && 100 & 467   \\
+Dynamic & ON  & 100 & 25   && 100 & 37    && 100 & 43    \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Mean final majority fraction (all 100 trials, including non-converged).}
+\label{tab:majority}
+\begin{tabular}{@{}ll rrr@{}}
+\toprule
+Exp.\ Level & Norm & $N=20$ & $N=100$ & $N=500$ \\
+\midrule
+None  & OFF & 0.598 & 0.534 & 0.518 \\
+None  & ON  & 0.632 & 0.615 & 0.616 \\
+Fixed & OFF & 1.000 & 0.970 & 0.787 \\
+Fixed & ON  & 1.000 & 1.000 & 1.000 \\
+Dynamic & OFF & 1.000 & 0.993 & 0.957 \\
+Dynamic & ON  & 1.000 & 1.000 & 1.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Normative speedup ratio: mean convergence tick (Exp-only) / mean convergence tick (Exp+Norm).}
+\label{tab:speedup}
+\begin{tabular}{@{}l rrr@{}}
+\toprule
+Exp.\ Level & $N = 20$ & $N = 100$ & $N = 500$ \\
+\midrule
+Fixed ($w{=}5$) & $7.7\times$ & $26.5\times$ & $38.7\times$ \\
+Dynamic $[2,6]$ & $3.0\times$ & $6.2\times$ & $10.8\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Observations}
+
+\begin{enumerate}
+\item \textbf{Experiential memory is necessary.} Without it (None rows), convergence is 0/100 at all $N$, regardless of normative memory. Adding norms to frozen beliefs raises final majority from $\sim$0.53 to $\sim$0.62 (Table~\ref{tab:majority})---a modest improvement from crystallisation, but far below the 0.95 threshold. Normative memory cannot create a pattern from noise alone.
+
+\item \textbf{Experiential learning alone scales poorly.} Fixed-window convergence degrades from 100\% ($N{=}20$) to 24\% ($N{=}500$), and the mean tick grows roughly linearly with $N$. Dynamic window helps (100\% at all $N$), but the tick still grows from 76 to 467.
+
+\item \textbf{With both systems, convergence is fast, complete, and $N$-robust.} The mean tick only grows from 25 to 43 as $N$ increases 25-fold (Table~\ref{tab:ablation}). Convergence rate is 100\% everywhere. Final majority is always 1.0.
+
+\item \textbf{The speedup grows with $N$} (Table~\ref{tab:speedup}). This is not a constant-factor improvement---it suggests a qualitative change in the convergence mechanism.
+
+\item \textbf{Normative memory compensates for weak experiential learning.} Fixed+Norm and Dynamic+Norm converge at nearly identical speeds ($\sim$10 ticks apart at all $N$). Once the normative cascade fires, the quality of the experiential estimator barely matters.
+\end{enumerate}
+
+%% ════════════════════════════════════════════════════════════════
+\section{Deep Analysis: The Normative Cascade}
+\label{sec:cascade}
+%% ════════════════════════════════════════════════════════════════
+
+The ablation shows \emph{what} each system contributes. This section traces \emph{how}: we tracked every agent's internal state tick by tick in a single diagnostic trial ($N = 100$, Dynamic+Norm, seed = 42).
+
+\subsection{Five phases of norm emergence}
+
+Figure~\ref{fig:anatomy} shows the number of agents in each crystallisation state over time.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/fig2_cascade_anatomy.png}
+    \caption{Agent group dynamics: crystallised-$A$ (blue), crystallised-$B$ (red), uncrystallised (grey dashed). Vertical dotted lines mark phase boundaries.}
+    \label{fig:anatomy}
+\end{figure}
+
+\begin{enumerate}[nosep]
+\item \textbf{Symmetric random} (tick 1--7). All agents uncrystallised. Actions are coin flips based on $b_{\exp} \approx 0.5$.
+
+\item \textbf{Symmetric crystallisation} (tick 7--30). DDM random walks cross $\pm\theta_{\mathrm{crystal}}$. Agents crystallise roughly evenly: 39\,$A$ vs.\ 38\,$B$ at tick 30. Both sides begin accumulating anomalies from each other. $b_{\exp}$ has barely moved from 0.5.
+
+\item \textbf{Tipping} (tick 30--55). Experiential memory slowly shifts $b_{\exp}$ from 0.50 to $\sim$0.58. The slight $A$-majority means $B$-norms face more violations than $A$-norms. $B$-norms begin dissolving; $A$-norms hold.
+
+\item \textbf{Cascade} (tick 55--72). The $B$-norm count collapses from 27 to 0 in $\sim$15 ticks. Each dissolution feeds the next (see Section~\ref{sec:loop}).
+
+\item \textbf{Lock-in} (tick 72+). All agents are $A$-crystallised. Norm strength recovers, confidence rises to 1.0, $b_{\exp} \to 1.0$.
+\end{enumerate}
+
+\subsection{Both vs.\ Experiential-only: same seed}
+
+Figure~\ref{fig:comparison} overlays the same seed under both conditions. The trajectories are virtually identical until tick 50; the divergence corresponds exactly to the cascade phase.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/fig1_both_vs_exponly.png}
+    \caption{Fraction playing $A$: Dual Memory (solid blue) vs.\ Experiential Only (dashed orange), same seed. Shaded region marks the cascade.}
+    \label{fig:comparison}
+\end{figure}
+
+\subsection{Signal amplification}
+
+Figure~\ref{fig:amplifier} reveals the mechanism behind the divergence. $A$-norm agents act $A$ with $\sim$85\% probability even when $b_{\exp} \approx 0.55$---the blending equation (Eq.~\ref{eq:beff}) converts a weak field signal into strong behavioural commitment. $B$-norm agents act $A$ with only $\sim$12\%. This bimodal output drives the population fraction far more aggressively than $b_{\exp}$ alone could.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/fig4_amplifier.png}
+    \caption{Per-group effective belief $b_{\mathrm{eff}}^A$. Blue: $A$-norm. Red: $B$-norm. Grey dashed: uncrystallised. Green dotted: population mean $b_{\exp}$.}
+    \label{fig:amplifier}
+\end{figure}
+
+\subsection{The feedback mechanism}
+
+Figure~\ref{fig:feedback} traces four coupled variables through the cascade:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/fig3_feedback_loop.png}
+    \caption{(a)~Norm strength $\sigma$: $B$-norms decay faster. (b)~Anomaly counts: $B$-norms approach the crisis threshold while $A$-norms decline. (c)~$b_{\exp}$ tracks the field; $b_{\mathrm{eff}}$ leads it. (d)~Dissolution events (red) and new $A$-crystallisations (blue) cluster in tick 40--70.}
+    \label{fig:feedback}
+\end{figure}
+
+\subsection{The one-way ratchet}
+
+We tracked every norm-state transition for all 100 agents. Among agents that crystallised to $B$, dissolved, and subsequently re-crystallised:
+\begin{itemize}[nosep]
+\item 44 agents followed $B \to \text{dissolved} \to A$.
+\item \textbf{0 agents} followed $B \to \text{dissolved} \to B$.
+\end{itemize}
+
+Figure~\ref{fig:lifecycle} visualises these lifecycles. The mean uncrystallised interval is 11.2 ticks---once dissolved, the agent sees a strongly $A$-biased environment and crystallises to $A$ rapidly.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/fig5_agent_lifecycle.png}
+    \caption{Lifecycle of 44 agents that transitioned $B \to \text{dissolved} \to A$. Red = $B$-crystallised, grey = uncrystallised, blue = $A$-crystallised. Black dots mark dissolution.}
+    \label{fig:lifecycle}
+\end{figure}
+
+\subsection{The dual feedback loop}
+\label{sec:loop}
+
+The cascade arises from two interlocking positive-feedback loops.
+
+\paragraph{Loop 1: Differential erosion (slow, tick 30--55).} When $n_A > n_B$ among crystallised agents, a $B$-norm agent's partner is more likely to play $A$ (a norm violation). Therefore $B$-norms accumulate anomalies faster, reach crisis sooner, and experience more $\sigma$-decay. As $B$-agents' compliance drops (Eq.~\ref{eq:beff}), they act less distinctly $B$, which makes the environment even more $A$-biased:
+\begin{equation}
+n_A > n_B \;\Longrightarrow\; \text{anomaly rate}(B) > \text{anomaly rate}(A) \;\Longrightarrow\; \sigma_B \downarrow\; \;\Longrightarrow\; \text{environment more } A\text{-biased}
+\end{equation}
+
+\paragraph{Loop 2: Dissolution cascade (fast, tick 55--72).} When $\sigma_B$ falls below $\sigma_{\min}$, the agent dissolves and re-enters the DDM. The DDM drift $(1 - C) \cdot f_{\mathrm{diff}}$ is now strongly positive (the environment is majority-$A$), so the agent re-crystallises to $A$ within $\sim$10 ticks. Each $B \to A$ conversion increases $n_A$, accelerating both loops:
+\begin{equation}
+\frac{d\, n_B}{dt} \;\propto\; -\,n_B \;\cdot\; p_A(n_B), \qquad \frac{\partial\, p_A}{\partial\, n_B} < 0
+\end{equation}
+(This is a qualitative continuous approximation; the actual dynamics proceed through discrete crisis events---anomaly accumulation to $\theta_{\mathrm{crisis}}$, multiplicative $\sigma$-decay, and dissolution when $\sigma < \sigma_{\min}$.)
+
+\noindent The result is \emph{exponential acceleration}: each dissolution makes the next faster (Figure~\ref{fig:causal}d).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/fig6_causal_chain.png}
+    \caption{The causal chain. (a)~Field asymmetry drives crystallisation asymmetry. (b)~$\sigma_A - \sigma_B$ diverges. (c)~Cumulative dissolutions track cumulative $A$-crystallisations. (d)~$B$-norm count collapses with accelerating rate.}
+    \label{fig:causal}
+\end{figure}
+
+\paragraph{Why this is a phase transition, not diffusion.}
+\begin{itemize}[nosep]
+\item \textbf{Diffusion} (experiential only): each agent independently drifts toward the majority at rate $\sim 1/w$. Convergence time scales as $O(N)$ because the signal must propagate one-hop-at-a-time through random pairings.
+\item \textbf{Phase transition} (with norms): once a critical asymmetry is reached ($\sim$55--60\% crystallised to one side), the cascade is self-sustaining and completes in a time determined by the anomaly-to-crisis-to-dissolution pathway---\emph{not} by $N$.
+\end{itemize}
+
+This structural difference explains the scaling results in Table~\ref{tab:speedup}: the experiential convergence time grows linearly with $N$, while the cascade time remains approximately constant, so the speedup ratio increases with $N$.
+
+%% ════════════════════════════════════════════════════════════════
+\section{Robustness}
+\label{sec:robustness}
+%% ════════════════════════════════════════════════════════════════
+
+\subsection{Cross-seed consistency (30 seeds)}
+
+\begin{table}[H]
+\centering
+\caption{Cascade timing across 30 seeds ($N = 100$, Dynamic+Norm).}
+\label{tab:robustness}
+\begin{tabular}{@{}l rrr@{}}
+\toprule
+Metric & Mean & Median & Range \\
+\midrule
+Symmetry breaks (last tick $|n_A - n_B| \leq 2$) & 10.4 & 7.5 & [0, 38] \\
+Cascade completes (minority norm $= 0$) & 41.5 & 43.5 & [10, 79] \\
+\textbf{Cascade duration} & \textbf{31.1} & \textbf{33.5} & \textbf{[4, 45]} \\
+Behavioural convergence tick & 34.5 & 33.5 & [17, 70] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The cascade duration is remarkably stable (median 33.5 ticks). Variability comes from the symmetry-breaking phase, not the cascade itself: the earliest trials happen to get an asymmetric initial draw, while the latest take $\sim$38 ticks to break symmetry.
+
+\subsection{Population-size invariance}
+
+From Table~\ref{tab:ablation}, Dynamic+Norm converges in 25 ticks at $N{=}20$, 37 at $N{=}100$, and 43 at $N{=}500$. A 25-fold increase in population adds only 18 ticks. The cascade mechanism---driven by local anomaly rates, not global diffusion---is inherently $N$-insensitive.
+
+\subsection{Symmetry between strategies}
+
+Of the 30 seeds, 16 converged to $A$ and 14 to $B$---consistent with the model's complete symmetry. The winning side is determined by stochastic fluctuations during the symmetry-breaking phase.
+
+%% ════════════════════════════════════════════════════════════════
+\section{Summary}
+\label{sec:summary}
+%% ════════════════════════════════════════════════════════════════
+
+\begin{enumerate}
+\item \textbf{Experiential memory} provides a noisy local estimate of the population behavioural frequency---a stochastic mean-field sensor. It can produce convergence alone, but slowly and with $O(N)$ scaling.
+
+\item \textbf{Normative memory} acts as a signal amplifier: crystallisation converts a weak experiential signal ($b_{\exp} \approx 0.55$) into strong behavioural commitment ($b_{\mathrm{eff}} \approx 0.85$), and the dissolution-recrystallisation cycle ensures that amplification is unidirectional.
+
+\item The amplification creates two interlocking positive-feedback loops (differential erosion $+$ dissolution cascade) that produce a \textbf{phase transition} from symmetric disorder to full consensus in $\sim$30 ticks, largely independent of $N$.
+
+\item Neither system alone is sufficient: without experiential memory, the amplifier has no signal; without normative memory, the signal diffuses slowly.
+
+\item All of this emerges from purely local interactions---no agent ever observes the global state.
+\end{enumerate}
+
+\end{document}
