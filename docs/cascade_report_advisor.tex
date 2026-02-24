@@ -9,6 +9,7 @@
 \usepackage{subcaption}
 \usepackage{hyperref}
 \usepackage{float}
+\usepackage{natbib}
 
 \title{Dual-Memory Norm Emergence Model:\\
 Ablation Results and Cascade Mechanism Analysis}
@@ -19,6 +20,25 @@ Ablation Results and Cascade Mechanism Analysis}
 \maketitle
 \tableofcontents
 \newpage
+
+%% ════════════════════════════════════════════════════════════════
+\section{Introduction}
+\label{sec:intro}
+%% ════════════════════════════════════════════════════════════════
+
+How does a population of anonymous agents, starting from a perfectly symmetric 50-50 behavioural split and no shared history, arrive at a self-enforcing social norm---not merely a behavioural convention, but a shared rule that agents internalise, comply with, and enforce \citep{bicchieri2006grammar}? This report presents ablation and cascade analysis for a dual-memory model that addresses this question. The model equips each agent with two qualitatively distinct memory systems, grounded in separate empirical traditions, and unifies them through a single bridging variable: predictive confidence.
+
+The first mechanism---\emph{experiential memory}---draws on the decisions-from-experience paradigm. \citet{hertwig2010decisions} argued that human decision-makers systematically rely on small, recent samples rather than exhaustive histories; computational models that best predict human behaviour in repeated market-entry games use effective windows of only five to six recent trials \citep{nevo2012bi}. Crucially, this window is not fixed. \citet{behrens2007learning} showed that the human brain continuously tracks environmental volatility and adjusts its learning rate accordingly: in volatile environments where prediction errors are frequent, learning rate increases---mathematically equivalent to shortening the effective memory window---so that recent observations receive greater weight; in stable environments, learning rate decreases, allowing longer integration over past experience. We operationalise this finding through a confidence-adaptive first-in-first-out (FIFO) buffer: predictive confidence~$C$ serves as the agent's estimate of environmental stability (the inverse of perceived volatility), and the effective window length is a monotonically increasing function of~$C$. Successful predictions raise~$C$ and expand the window, stabilising beliefs; prediction failures lower~$C$ and contract it, restoring sensitivity to change. The asymmetric update rule---confidence builds slowly through successful predictions but collapses rapidly after failures---is inspired by \citeauthor{slovic1993perceived}'s (\citeyear{slovic1993perceived}) observation that trust is easier to destroy than to create; we apply the same asymmetry to an agent's confidence in environmental predictability.
+
+The second mechanism---\emph{normative memory}---operationalises norm internalisation as a drift-diffusion process. \citet{germar2014social} demonstrated experimentally that exposure to majority opinion alters the drift rate in perceptual decision-making, shifting subjects' evidence accumulation toward the majority-consistent response. \citet{germar2019learning} further showed that this perceptual shift persists after the social influence is removed, suggesting that repeated exposure to social consensus can produce a lasting cognitive bias. We interpret this persistence as evidence that social influence, under appropriate conditions, can give rise to internalised rules. We model the process as a signed two-boundary drift-diffusion model (DDM) in which observed social consistency accumulates as noisy evidence; when the accumulated evidence crosses a crystallisation threshold, a discrete normative rule forms.
+
+The key architectural decision---that uncertainty promotes norm uptake while certainty promotes reliance on personal experience---is motivated by the broader principle that organisms increase social learning when individual learning is unreliable. \citet{rendell2010copy}, in their social learning strategies tournament, showed that the most successful strategies were those that copied when uncertain---that is, agents who relied on social information precisely when their own assessment of the environment was poor. This maps directly onto our confidence-gated architecture: the DDM drift rate scales with $(1-C)$, so low-confidence agents---those whose predictions of partner behaviour have been failing---accumulate normative evidence rapidly, while high-confidence agents rely predominantly on their experiential memory.
+
+A related but distinct intuition comes from the dual-process literature. \citet{rand2014social} showed that under time pressure or cognitive load, people default to socially learned heuristics, while under deliberation they override these defaults. Our model captures an analogous asymmetry at the learning level rather than the execution level: just as cognitive load shifts behaviour toward social defaults in Rand's framework, low predictive confidence shifts an agent's learning dynamics toward faster uptake of social regularities. We do not claim a strict correspondence---Rand's heuristics are pre-existing defaults being retrieved, whereas our agents are forming new normative representations---but the directional logic is the same: uncertainty favours social over individual information.
+
+Predictive confidence~$C$ thus serves as the single variable that bridges the two memory systems, determining whether an agent's learning is dominated by socially inferred rules or by individually accumulated experience.
+
+The remainder of this report is organised as follows. Section~\ref{sec:model} specifies the model. Section~\ref{sec:ablation} presents a systematic ablation isolating each mechanism's contribution. Section~\ref{sec:cascade} traces the \emph{normative cascade}---the positive-feedback process by which minority norms dissolve and the population locks into consensus---through detailed tick-by-tick analysis. The cascade emerges from the interaction of both mechanisms and cannot be produced by either alone.
 
 %% ════════════════════════════════════════════════════════════════
 \section{Model Description}
@@ -254,6 +274,8 @@ Dynamic $[2,6]$ & $3.0\times$ & $6.2\times$ & $10.8\times$ \\
 \begin{enumerate}
 \item \textbf{Experiential memory is necessary.} Without it (None rows), convergence is 0/100 at all $N$, regardless of normative memory. Adding norms to frozen beliefs raises final majority from $\sim$0.53 to $\sim$0.62 (Table~\ref{tab:majority})---a modest improvement from crystallisation, but far below the 0.95 threshold. Normative memory cannot create a pattern from noise alone.
 
+The mechanism is symmetric cancellation. With $b_{\exp}$ frozen at $0.5$, actions are coin flips, so the DDM performs a pure random walk and crystallises roughly equal numbers of $A$- and $B$-norms (${\sim}50$ vs.\ ${\sim}50$). An $A$-norm agent acts $A$ with $b_{\mathrm{eff}}^A = 0.82$; a $B$-norm agent acts $A$ with $b_{\mathrm{eff}}^A = 0.18$. These biases cancel at the population level: $\mathrm{fraction}_A \approx 0.50 \cdot 0.82 + 0.50 \cdot 0.18 = 0.50$. The resulting violation-rate gap between sides is negligible (${\sim}51\%$ vs.\ ${\sim}49\%$), so both norms reach crisis and dissolve at nearly the same rate---the one-way ratchet that drives the cascade in the full model (Section~\ref{sec:loop}) is effectively disabled. The modest improvement to $0.62$ arises from weak statistical drift accumulated over many crystallise--dissolve--recrystallise cycles, but this drift can never self-amplify to $0.95$ because $b_{\exp}$ is pinned at $0.5$ and the positive-feedback loop through experiential memory is broken.
+
 \item \textbf{Experiential learning alone scales poorly.} Fixed-window convergence degrades from 100\% ($N{=}20$) to 24\% ($N{=}500$), and the mean tick grows roughly linearly with $N$. Dynamic window helps (100\% at all $N$), but the tick still grows from 76 to 467.
 
 \item \textbf{With both systems, convergence is fast, complete, and $N$-robust.} The mean tick only grows from 25 to 43 as $N$ increases 25-fold (Table~\ref{tab:ablation}). Convergence rate is 100\% everywhere. Final majority is always 1.0.
@@ -276,7 +298,7 @@ Figure~\ref{fig:anatomy} shows the number of agents in each crystallisation stat
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{figures/fig2_cascade_anatomy.png}
+    \includegraphics[height=0.65\textheight,angle=90,keepaspectratio]{figures/fig2_cascade_anatomy.png}
     \caption{Agent group dynamics: crystallised-$A$ (blue), crystallised-$B$ (red), uncrystallised (grey dashed). Vertical dotted lines mark phase boundaries.}
     \label{fig:anatomy}
 \end{figure}
@@ -425,5 +447,56 @@ Of the 30 seeds, 16 converged to $A$ and 14 to $B$---consistent with the model's
 
 \item All of this emerges from purely local interactions---no agent ever observes the global state.
 \end{enumerate}
+
+%% ════════════════════════════════════════════════════════════════
+\bibliographystyle{apalike}
+\begin{thebibliography}{99}
+
+\bibitem[Behrens et al.(2007)]{behrens2007learning}
+Behrens, T.~E.~J., Woolrich, M.~W., Walton, M.~E., \& Rushworth, M.~F.~S. (2007).
+Learning the value of information in an uncertain world.
+\textit{Nature Neuroscience}, 10(9), 1214--1221.
+
+\bibitem[Bicchieri(2006)]{bicchieri2006grammar}
+Bicchieri, C. (2006).
+\textit{The Grammar of Society: The Nature and Dynamics of Social Norms}.
+Cambridge University Press.
+
+\bibitem[Germar et al.(2014)]{germar2014social}
+Germar, M., Schlemmer, A., Krug, K., Voss, A., \& Mojzisch, A. (2014).
+Social influence and perceptual decision making: A diffusion model analysis.
+\textit{Personality and Social Psychology Bulletin}, 40(2), 217--231.
+
+\bibitem[Germar \& Mojzisch(2019)]{germar2019learning}
+Germar, M., \& Mojzisch, A. (2019).
+Learning of social norms can lead to a persistent perceptual bias: A diffusion model approach.
+\textit{Journal of Experimental Social Psychology}, 80, 8--16.
+
+\bibitem[Hertwig \& Pleskac(2010)]{hertwig2010decisions}
+Hertwig, R., \& Pleskac, T.~J. (2010).
+Decisions from experience: Why small samples?
+\textit{Cognition}, 115(2), 225--237.
+
+\bibitem[Nevo \& Erev(2012)]{nevo2012bi}
+Nevo, I., \& Erev, I. (2012).
+Bounded memory, inertia, sampling and weighting model for market entry games.
+\textit{Games}, 3(1), 20--41.
+
+\bibitem[Rand et al.(2014)]{rand2014social}
+Rand, D.~G., Peysakhovich, A., Kraft-Todd, G.~T., Newman, G.~E., Wurzbacher, O., Nowak, M.~A., \& Greene, J.~D. (2014).
+Social heuristics shape intuitive cooperation.
+\textit{Nature Communications}, 5, 3677.
+
+\bibitem[Rendell et al.(2010)]{rendell2010copy}
+Rendell, L., Boyd, R., Cownden, D., et al. (2010).
+Why copy others? Insights from the social learning strategies tournament.
+\textit{Science}, 328(5975), 208--213.
+
+\bibitem[Slovic(1993)]{slovic1993perceived}
+Slovic, P. (1993).
+Perceived risk, trust, and democracy.
+\textit{Risk Analysis}, 13(6), 675--682.
+
+\end{thebibliography}
 
 \end{document}
