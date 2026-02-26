@@ -19,6 +19,9 @@ include("probes.jl")
 # ── Initialization ──
 include("init.jl")
 
+# ── Network topology ──
+include("network.jl")
+
 # ── Pipeline stages ──
 include("stages.jl")
 
@@ -60,6 +63,11 @@ export
 
     # Sweep
     SweepConfig, SweepResult,
+
+    # Network
+    generate_network, generate_ring_lattice, generate_smallworld, generate_scalefree,
+    network_stats,
+    stage_1_pair_and_act_network!,
 
     # Functions
     validate, initialize, create_workspace,

@@ -292,29 +292,37 @@ class Agent:
         enforcement_count = 0
 
         if not self._normative_memory.has_norm():
-            # Pre-crystallisation: feed DDM
+            # Pre-crystallisation: feed DDM with signed consistency
             if observed_strategies:
                 counts = np.zeros(2)
                 for s in observed_strategies:
                     counts[s] += 1
                 total = len(observed_strategies)
-                consistency = max(counts) / total
-                dominant = int(np.argmax(counts))
+                f_diff = (counts[0] - counts[1]) / total  # signed, in [-1, 1]
 
                 crystallised = self._normative_memory.update_evidence(
                     confidence=self.trust,
-                    consistency=consistency,
-                    dominant_strategy=dominant,
+                    f_diff=f_diff,
+                    signal_amplification=self._signal_amplification,
                 )
         else:
-            # Post-crystallisation: anomaly tracking + enforcement
+            # Post-crystallisation: batch count violations and conformities (DD-3)
+            n_violations = 0
+            n_conform = 0
+            norm = self._normative_memory.norm
             for s in observed_strategies:
-                if self._normative_memory.should_enforce(s, self._enforce_threshold):
-                    self._normative_memory.record_enforcement()
-                    enforcement_count += 1
+                if s != norm:
+                    if self._normative_memory.should_enforce(s, self._enforce_threshold):
+                        self._normative_memory.record_enforcement()
+                        enforcement_count += 1
+                    else:
+                        n_violations += 1
                 else:
-                    self._normative_memory.record_anomaly(s)
+                    n_conform += 1
 
+            # Apply batch strengthening, then batch anomaly, then crisis check
+            self._normative_memory.strengthen(n_conform)
+            self._normative_memory._anomaly_count += n_violations
             dissolved = self._normative_memory.check_crisis()
 
         return (crystallised, dissolved, enforcement_count)
@@ -348,14 +356,14 @@ class Agent:
         """
         Receive a normative enforcement signal from another agent.
 
-        Boosts DDM drift rate for the next evidence update.
+        Stores the enforced strategy direction for the next DDM update.
         Only effective if this agent has not yet crystallised a norm.
 
         Args:
-            signaled_strategy: The norm strategy being enforced
+            signaled_strategy: The norm strategy being enforced (0=A, 1=B)
         """
         if self._normative_memory is not None:
-            self._normative_memory.receive_signal(self._signal_amplification)
+            self._normative_memory.receive_signal(signaled_strategy)
 
     # =========================================================================
     # Metrics and Reset
@@ -574,6 +582,7 @@ def create_agent(
             crisis_decay=crisis_decay,
             min_strength=min_strength,
             compliance_exponent=compliance_exponent,
+            strengthen_rate=0.005,
             rng=normative_rng or np.random.RandomState(),
         )
 
