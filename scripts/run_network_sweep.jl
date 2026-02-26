@@ -36,12 +36,13 @@ const BEH_WINDOW = 50
 # Topology configurations: (label, topology_symbol, p_values)
 # For non-smallworld topologies, p is unused
 const TOPO_CONFIGS = [
-    (:complete,   :complete,   [0.0]),
-    (:ring,       :ring,       [0.0]),
-    (:sw_p001,    :smallworld, [0.01]),
-    (:sw_p01,     :smallworld, [0.1]),
-    (:sw_p05,     :smallworld, [0.5]),
-    (:scalefree,  :scalefree,  [0.0]),
+    (:complete,    :complete,   [0.0]),
+    (:roundrobin,  :roundrobin, [0.0]),
+    (:ring,        :ring,       [0.0]),
+    (:sw_p001,     :smallworld, [0.01]),
+    (:sw_p01,      :smallworld, [0.1]),
+    (:sw_p05,      :smallworld, [0.5]),
+    (:scalefree,   :scalefree,  [0.0]),
 ]
 
 # ══════════════════════════════════════════════════════════════
@@ -127,8 +128,8 @@ function run_sweep()
             p = p_vals[1]
 
             for k in K_VALUES
-                # Skip complete graph with different k (redundant — complete ignores k)
-                if topo_sym == :complete && k != K_VALUES[1]
+                # Skip topologies that ignore k (complete, roundrobin) for redundant k values
+                if topo_sym in (:complete, :roundrobin) && k != K_VALUES[1]
                     continue
                 end
 

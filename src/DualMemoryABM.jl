@@ -66,8 +66,9 @@ export
 
     # Network
     generate_network, generate_ring_lattice, generate_smallworld, generate_scalefree,
+    generate_roundrobin_schedule, RoundRobinSchedule, NetworkArg,
     network_stats,
-    stage_1_pair_and_act_network!,
+    stage_1_pair_and_act_network!, stage_1_pair_and_act_roundrobin!,
 
     # Functions
     validate, initialize, create_workspace,

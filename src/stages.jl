@@ -150,6 +150,54 @@ function stage_1_pair_and_act_network!(agents::Vector{AgentState}, ws::TickWorks
     return nothing
 end
 
+"""
+    stage_1_pair_and_act_roundrobin!(agents, ws, params, rng, schedule)
+
+Round-robin pairing: read the next round from the pre-computed schedule,
+then advance the round counter (reshuffling at cycle boundaries).
+All agents are matched every tick.
+"""
+function stage_1_pair_and_act_roundrobin!(agents::Vector{AgentState}, ws::TickWorkspace,
+                                           params::SimulationParams, rng::AbstractRNG,
+                                           schedule::RoundRobinSchedule)
+    N = params.N
+    n_pairs = N ÷ 2
+
+    # Look up current round
+    round_idx = schedule.round_order[schedule.current_idx]
+
+    for k in 1:n_pairs
+        i = schedule.schedule_i[k, round_idx]
+        j = schedule.schedule_j[k, round_idx]
+        ws.pair_i[k] = i
+        ws.pair_j[k] = j
+
+        # 1b. Compute effective belief
+        compute_effective_belief!(agents[i], params)
+        compute_effective_belief!(agents[j], params)
+
+        # 1c. Action selection: probability matching
+        ws.action[i] = rand(rng) < agents[i].b_eff_A ? STRATEGY_A : STRATEGY_B
+        ws.action[j] = rand(rng) < agents[j].b_eff_A ? STRATEGY_A : STRATEGY_B
+
+        # 1d. MAP prediction (deterministic, tie-break random)
+        ws.prediction[i] = map_predict(agents[i].b_eff_A, rng)
+        ws.prediction[j] = map_predict(agents[j].b_eff_A, rng)
+
+        # 1e. Record coordination
+        ws.coordinated[k] = ws.action[i] == ws.action[j]
+    end
+
+    # Advance round counter; reshuffle at cycle boundary
+    schedule.current_idx += 1
+    if schedule.current_idx > schedule.n_rounds
+        schedule.current_idx = 1
+        shuffle!(rng, schedule.round_order)
+    end
+
+    return nothing
+end
+
 # ══════════════════════════════════════════════════════════════
 # Stage 2: Observe and Update Experience Memory
 # ══════════════════════════════════════════════════════════════
