@@ -2,23 +2,95 @@
 # Network Topology Generation
 # ══════════════════════════════════════════════════════════════
 
+# ── Round-Robin Schedule ─────────────────────────────────────
+
+"""
+    RoundRobinSchedule
+
+Pre-computed round-robin tournament schedule. Every pair of agents meets exactly
+once per cycle (N-1 rounds). Between cycles, the round order is reshuffled.
+
+All agents are matched every tick (like complete graph), but pair assignment
+follows a deterministic schedule within each cycle.
+"""
+mutable struct RoundRobinSchedule
+    N::Int
+    n_rounds::Int               # N - 1
+    n_pairs::Int                # N ÷ 2
+    schedule_i::Matrix{Int}     # (n_pairs, n_rounds) — first agent in each pair
+    schedule_j::Matrix{Int}     # (n_pairs, n_rounds) — second agent in each pair
+    round_order::Vector{Int}    # shuffled permutation of 1:n_rounds
+    current_idx::Int            # position in round_order (1-based, wraps)
+end
+
+"""
+    generate_roundrobin_schedule(N::Int, rng::AbstractRNG)
+
+Generate a round-robin tournament schedule for N agents (N must be even).
+
+Uses the classic polygon algorithm: fix agent N, rotate agents 1..N-1 through
+N-1 rounds. Each round produces N/2 pairs; every pair appears exactly once
+per cycle.
+"""
+function generate_roundrobin_schedule(N::Int, rng::AbstractRNG)
+    iseven(N) || throw(ArgumentError("N must be even for round-robin, got $N"))
+    N >= 4 || throw(ArgumentError("N must be ≥ 4 for round-robin, got $N"))
+
+    n_rounds = N - 1
+    n_pairs = N ÷ 2
+    nm1 = N - 1  # number of rotating players
+
+    schedule_i = Matrix{Int}(undef, n_pairs, n_rounds)
+    schedule_j = Matrix{Int}(undef, n_pairs, n_rounds)
+
+    for r in 0:(n_rounds - 1)
+        # Pair 1: rotating position 1 ↔ fixed player N
+        schedule_i[1, r + 1] = (r % nm1) + 1
+        schedule_j[1, r + 1] = N
+
+        # Remaining pairs: position p ↔ position (N+1-p) among rotating players
+        for p in 2:n_pairs
+            player_a = ((p - 1 + r) % nm1) + 1
+            player_b = ((N - p + r) % nm1) + 1
+            schedule_i[p, r + 1] = player_a
+            schedule_j[p, r + 1] = player_b
+        end
+    end
+
+    round_order = collect(1:n_rounds)
+    shuffle!(rng, round_order)
+
+    return RoundRobinSchedule(N, n_rounds, n_pairs, schedule_i, schedule_j, round_order, 1)
+end
+
+# ── Type alias for network argument ─────────────────────────
+
+const NetworkArg = Union{Nothing, Vector{Vector{Int}}, RoundRobinSchedule}
+
+# ── Topology dispatcher ─────────────────────────────────────
+
 """
     generate_network(topology::Symbol, N::Int, k::Int; p::Float64=0.1, rng::AbstractRNG=Random.default_rng())
 
-Generate an adjacency list for the given topology. Returns `nothing` for :complete.
+Generate a network for the given topology. Returns:
+- `nothing` for :complete
+- `RoundRobinSchedule` for :roundrobin
+- `Vector{Vector{Int}}` adjacency list for :ring, :smallworld, :scalefree
 
-- `:complete` — returns nothing (use standard mean-field pairing)
-- `:ring`     — ring lattice with k/2 neighbors each side
-- `:smallworld` — Watts-Strogatz rewiring with probability p
-- `:scalefree`  — Barabási-Albert preferential attachment with m = k÷2
+- `:complete`    — returns nothing (use standard mean-field pairing)
+- `:roundrobin`  — round-robin tournament schedule (k is ignored)
+- `:ring`        — ring lattice with k/2 neighbors each side
+- `:smallworld`  — Watts-Strogatz rewiring with probability p
+- `:scalefree`   — Barabási-Albert preferential attachment with m = k÷2
 """
 function generate_network(topology::Symbol, N::Int, k::Int;
                            p::Float64=0.1, rng::AbstractRNG=Random.default_rng())
     topology == :complete && return nothing
+    topology == :roundrobin && return generate_roundrobin_schedule(N, rng)
     topology == :ring && return generate_ring_lattice(N, k)
     topology == :smallworld && return generate_smallworld(N, k, p, rng)
     topology == :scalefree && return generate_scalefree(N, k ÷ 2, rng)
-    throw(ArgumentError("Unknown topology: $topology. Use :complete, :ring, :smallworld, or :scalefree"))
+    throw(ArgumentError("Unknown topology: $topology. Use :complete, :roundrobin, :ring, :smallworld, or :scalefree"))
 end
 
 """

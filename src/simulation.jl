@@ -13,15 +13,19 @@ end
     run_tick!(t, agents, ws, history, tick_count, params, rng, probes; network=nothing)
 
 Execute one complete tick of the simulation pipeline.
-When network is provided (Vector{Vector{Int}}), uses network-constrained pairing.
+When network is a `Vector{Vector{Int}}` (adjacency list), uses network-constrained pairing.
+When network is a `RoundRobinSchedule`, uses round-robin tournament pairing.
 """
 function run_tick!(t::Int, agents::Vector{AgentState}, ws::TickWorkspace,
                    history::Vector{TickMetrics}, tick_count::Int,
                    params::SimulationParams, rng::AbstractRNG, probes;
-                   network::Union{Nothing, Vector{Vector{Int}}}=nothing)
-    use_net = network !== nothing
+                   network::NetworkArg=nothing)
+    # Adjacency-list networks may leave agents unmatched → special handling in stages 2-6
+    use_net = network isa Vector{Vector{Int}}
 
-    if use_net
+    if network isa RoundRobinSchedule
+        stage_1_pair_and_act_roundrobin!(agents, ws, params, rng, network)
+    elseif use_net
         stage_1_pair_and_act_network!(agents, ws, params, rng, network)
     else
         stage_1_pair_and_act!(agents, ws, params, rng)
@@ -50,10 +54,10 @@ end
     run!(params::SimulationParams; probes::ProbeSet=ProbeSet(), network=nothing)
 
 Run the complete simulation. Returns a SimulationResult.
-When network is provided, uses network-constrained pairing each tick.
+When network is provided, uses network-constrained or round-robin pairing each tick.
 """
 function run!(params::SimulationParams; probes::ProbeSet=ProbeSet(),
-              network::Union{Nothing, Vector{Vector{Int}}}=nothing)
+              network::NetworkArg=nothing)
     agents, ws, history, rng = initialize(params)
     tick_count = 0
 
