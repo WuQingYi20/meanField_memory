@@ -30,6 +30,10 @@ Base.@kwdef struct SimulationParams
     V::Int = 0
     Phi::Float64 = 0.0
 
+    # Network topology metadata (for logging only; actual network passed as argument)
+    network_topology::Symbol = :complete
+    network_degree::Int = 0
+
     # Convergence: 3-layer thresholds
     thresh_majority::Float64 = 0.95
     thresh_belief_error::Float64 = 0.10
@@ -99,6 +103,8 @@ function to_namedtuple(params::SimulationParams)
         alpha_sigma = params.alpha_sigma, theta_enforce = params.theta_enforce,
         k = params.k, gamma_signal = params.gamma_signal,
         V = params.V, Phi = params.Phi,
+        network_topology = params.network_topology,
+        network_degree = params.network_degree,
         thresh_majority = params.thresh_majority,
         thresh_belief_error = params.thresh_belief_error,
         thresh_belief_var = params.thresh_belief_var,

@@ -73,6 +73,83 @@ function stage_1_pair_and_act!(agents::Vector{AgentState}, ws::TickWorkspace,
     return nothing
 end
 
+"""
+    stage_1_pair_and_act_network!(agents, ws, params, rng, network)
+
+Network-constrained pairing via greedy maximal matching.
+Shuffle agents, iterate: for each unmatched agent, pick a random available neighbor.
+Unmatched agents get partner_id[i] = 0.
+"""
+function stage_1_pair_and_act_network!(agents::Vector{AgentState}, ws::TickWorkspace,
+                                       params::SimulationParams, rng::AbstractRNG,
+                                       network::Vector{Vector{Int}})
+    N = params.N
+
+    # Reset availability and partner lookup
+    fill!(ws.available, true)
+    fill!(ws.partner_id, 0)
+    fill!(ws.partner_action, Int8(0))
+
+    # Random permutation for visit order
+    randperm!(rng, ws.perm)
+
+    n_pairs = 0
+
+    for idx in 1:N
+        i = ws.perm[idx]
+        ws.available[i] || continue
+
+        # Find available neighbors
+        neighbors = network[i]
+        # Shuffle neighbor selection by picking a random available one
+        best_j = 0
+        n_avail = 0
+        for j in neighbors
+            if ws.available[j]
+                n_avail += 1
+                # Reservoir sampling: pick uniformly at random
+                if rand(rng, 1:n_avail) == 1
+                    best_j = j
+                end
+            end
+        end
+
+        best_j == 0 && continue  # no available neighbor
+
+        # Form pair
+        ws.available[i] = false
+        ws.available[best_j] = false
+        n_pairs += 1
+        ws.pair_i[n_pairs] = i
+        ws.pair_j[n_pairs] = best_j
+
+        # Compute effective beliefs
+        compute_effective_belief!(agents[i], params)
+        compute_effective_belief!(agents[best_j], params)
+
+        # Action selection
+        ws.action[i] = rand(rng) < agents[i].b_eff_A ? STRATEGY_A : STRATEGY_B
+        ws.action[best_j] = rand(rng) < agents[best_j].b_eff_A ? STRATEGY_A : STRATEGY_B
+
+        # MAP prediction
+        ws.prediction[i] = map_predict(agents[i].b_eff_A, rng)
+        ws.prediction[best_j] = map_predict(agents[best_j].b_eff_A, rng)
+
+        # Partner lookup
+        ws.partner_id[i] = best_j
+        ws.partner_id[best_j] = i
+        ws.partner_action[i] = ws.action[best_j]
+        ws.partner_action[best_j] = ws.action[i]
+
+        # Coordination
+        ws.coordinated[n_pairs] = ws.action[i] == ws.action[best_j]
+    end
+
+    ws.n_pairs_formed = n_pairs
+
+    return nothing
+end
+
 # ══════════════════════════════════════════════════════════════
 # Stage 2: Observe and Update Experience Memory
 # ══════════════════════════════════════════════════════════════
@@ -91,23 +168,28 @@ Recompute experience belief (A component) from FIFO using last w entries.
 end
 
 """
-    stage_2_observe_and_memory!(agents, ws, params, rng)
+    stage_2_observe_and_memory!(agents, ws, params, rng; use_network=false)
 
 Add partner's strategy to FIFO, sample V additional observations, recompute b_exp.
+When use_network=true, partner_id is already set by stage_1_pair_and_act_network!
+and unmatched agents (partner_id==0) are skipped.
 """
 function stage_2_observe_and_memory!(agents::Vector{AgentState}, ws::TickWorkspace,
-                                      params::SimulationParams, rng::AbstractRNG)
+                                      params::SimulationParams, rng::AbstractRNG;
+                                      use_network::Bool=false)
     N = params.N
-    n_pairs = N ÷ 2
+    n_pairs = use_network ? ws.n_pairs_formed : N ÷ 2
 
-    # Build partner lookup from pairs
-    for k in 1:n_pairs
-        i = ws.pair_i[k]
-        j = ws.pair_j[k]
-        ws.partner_id[i] = j
-        ws.partner_id[j] = i
-        ws.partner_action[i] = ws.action[j]
-        ws.partner_action[j] = ws.action[i]
+    # Build partner lookup from pairs (only for complete graph path)
+    if !use_network
+        for k in 1:n_pairs
+            i = ws.pair_i[k]
+            j = ws.pair_j[k]
+            ws.partner_id[i] = j
+            ws.partner_id[j] = i
+            ws.partner_action[i] = ws.action[j]
+            ws.partner_action[j] = ws.action[i]
+        end
     end
 
     # Build observations for each agent
@@ -116,6 +198,11 @@ function stage_2_observe_and_memory!(agents::Vector{AgentState}, ws::TickWorkspa
     for i in 1:N
         ws.obs_offset[i] = obs_pos
 
+        # Skip unmatched agents on network topology
+        if use_network && ws.partner_id[i] == 0
+            continue
+        end
+
         # 2a. Always include partner's action as first observation
         ws.obs_pool[obs_pos] = ws.partner_action[i]
         obs_pos += 1
@@ -123,7 +210,7 @@ function stage_2_observe_and_memory!(agents::Vector{AgentState}, ws::TickWorkspa
         # 2b. Add partner's strategy to FIFO (DD-1: partner only)
         push!(agents[i].fifo, ws.partner_action[i])
 
-        # 2c. V additional observations from other interactions
+        # 2c. V additional observations from other interactions (global, not network-constrained)
         if params.V > 0
             # Build eligible list: pairs not involving agent i
             n_eligible = 0
@@ -177,13 +264,19 @@ end
 # ══════════════════════════════════════════════════════════════
 
 """
-    stage_3_confidence!(agents, ws, params)
+    stage_3_confidence!(agents, ws, params; use_network=false)
 
 Update predictive confidence and window size based on prediction accuracy.
+When use_network=true, skip unmatched agents (no prediction was made).
 """
 function stage_3_confidence!(agents::Vector{AgentState}, ws::TickWorkspace,
-                              params::SimulationParams)
+                              params::SimulationParams; use_network::Bool=false)
     for i in 1:params.N
+        # Skip unmatched agents on network topology
+        if use_network && ws.partner_id[i] == 0
+            continue
+        end
+
         partner_act = ws.partner_action[i]
         my_pred = ws.prediction[i]
         correct = (my_pred == partner_act)
@@ -338,18 +431,25 @@ function post_crystal_update!(agent::AgentState, agent_id::Int,
 end
 
 """
-    stage_4_normative!(agents, ws, params, rng)
+    stage_4_normative!(agents, ws, params, rng; use_network=false)
 
 Update normative memory: DDM (pre-crystallisation) or anomaly/crisis (post-crystallisation).
+When use_network=true, skip unmatched agents (no observations to process).
 """
 function stage_4_normative!(agents::Vector{AgentState}, ws::TickWorkspace,
-                             params::SimulationParams, rng::AbstractRNG)
+                             params::SimulationParams, rng::AbstractRNG;
+                             use_network::Bool=false)
     N = params.N
 
     # Reset enforcement intents
     fill!(ws.enforce_target, 0)
 
     for i in 1:N
+        # Skip unmatched agents on network topology
+        if use_network && ws.partner_id[i] == 0
+            continue
+        end
+
         obs_start = ws.obs_offset[i]
         obs_end = ws.obs_offset[i + 1] - 1
 
@@ -429,15 +529,16 @@ function all_layers_met(fraction_A::Float64, belief_error::Float64, belief_var::
 end
 
 """
-    stage_6_metrics(agents, ws, t, history, tick_count, params)
+    stage_6_metrics(agents, ws, t, history, tick_count, params; use_network=false)
 
 Compute all per-tick metrics. Read-only (no state modification).
+When use_network=true, uses ws.n_pairs_formed instead of N÷2 for coordination rate.
 """
 function stage_6_metrics(agents::Vector{AgentState}, ws::TickWorkspace,
                           t::Int, history::Vector{TickMetrics}, tick_count::Int,
-                          params::SimulationParams)
+                          params::SimulationParams; use_network::Bool=false)
     N = params.N
-    n_pairs = N ÷ 2
+    n_pairs = use_network ? ws.n_pairs_formed : N ÷ 2
 
     # Fraction A
     n_A = 0
@@ -462,7 +563,7 @@ function stage_6_metrics(agents::Vector{AgentState}, ws::TickWorkspace,
             n_coord += 1
         end
     end
-    coord_rate = n_coord / n_pairs
+    coord_rate = n_pairs > 0 ? n_coord / n_pairs : 0.0
 
     # Crystallisation stats
     num_cryst = 0

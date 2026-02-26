@@ -29,6 +29,9 @@ function create_workspace(params::SimulationParams)
         0,                                 # num_enforcements
 
         Vector{Int}(undef, n_pairs),       # eligible_buf
+
+        Vector{Bool}(undef, N),            # available
+        0,                                 # n_pairs_formed
     )
 end
 

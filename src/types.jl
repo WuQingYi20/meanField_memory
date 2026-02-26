@@ -153,6 +153,10 @@ mutable struct TickWorkspace
 
     # Eligible interaction indices for V sampling (reusable buffer)
     eligible_buf::Vector{Int}        # length N/2
+
+    # Network matching (only used when network != nothing)
+    available::Vector{Bool}          # length N, tracks unmatched agents during greedy matching
+    n_pairs_formed::Int              # actual pairs formed (may be < N÷2 on sparse networks)
 end
 
 # ──────────────────────────────────────────────────────────────
