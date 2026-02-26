@@ -50,7 +50,6 @@ class NormativeMemory:
 
     def __init__(
         self,
-        ddm_noise: float = 0.1,
         crystal_threshold: float = 3.0,
         initial_strength: float = 0.8,
         crisis_threshold: int = 10,
@@ -58,13 +57,15 @@ class NormativeMemory:
         min_strength: float = 0.1,
         compliance_exponent: float = 2.0,
         strengthen_rate: float = 0.005,
+        # Deprecated: ddm_noise and rng are no longer used (DD-12).
+        # Kept in signature for backward compatibility; ignored.
+        ddm_noise: float = 0.0,
         rng: Optional[np.random.RandomState] = None,
     ):
         """
         Initialise normative memory.
 
         Args:
-            ddm_noise: Standard deviation of DDM noise (sigma_noise)
             crystal_threshold: Evidence threshold for crystallisation (theta_crystal)
             initial_strength: Norm strength upon crystallisation (sigma_0)
             crisis_threshold: Anomaly count triggering crisis (theta_crisis)
@@ -72,9 +73,9 @@ class NormativeMemory:
             min_strength: Below this, norm dissolves (sigma_min)
             compliance_exponent: Exponent k in compliance = sigma^k
             strengthen_rate: Per-conforming-observation strengthening rate (alpha_sigma)
-            rng: Per-agent random state for reproducibility
+            ddm_noise: **Deprecated (DD-12).** Ignored. Noise removed from DDM.
+            rng: **Deprecated (DD-12).** Ignored. No longer needed without noise.
         """
-        self._ddm_noise = ddm_noise
         self._crystal_threshold = crystal_threshold
         self._initial_strength = initial_strength
         self._crisis_threshold = crisis_threshold
@@ -82,7 +83,6 @@ class NormativeMemory:
         self._min_strength = min_strength
         self._compliance_exponent = compliance_exponent
         self._strengthen_rate = strengthen_rate
-        self._rng = rng or np.random.RandomState()
 
         # State variables
         self._norm: Optional[int] = None       # r_i
@@ -139,13 +139,18 @@ class NormativeMemory:
 
         drift = (1 - C) * f_diff
         signal_push = (1 - C) * gamma * dir(enforced_strategy)  [if signal pending]
-        e(t+1) = e(t) + drift + signal_push + N(0, sigma_noise^2)
+        e(t+1) = e(t) + drift + signal_push
+
+        No additive noise (DD-12): sampling noise is already captured by
+        the finite-window variance of b_exp, which provides f_diff.
 
         Crystallises when |e| >= theta_crystal. Direction from sign of e.
 
         Args:
             confidence: Agent's predictive confidence C_i in [0, 1]
-            f_diff: Signed consistency (n_A - n_B) / |O_i|, in [-1, 1]
+            f_diff: Signed belief bias b_exp_A - b_exp_B (DD-11), in [-1, 1].
+                    Caller computes this from experience memory, NOT from
+                    raw single-tick observations.
             signal_amplification: gamma_signal for enforcement push
 
         Returns:
@@ -164,9 +169,8 @@ class NormativeMemory:
             signal_push = (1.0 - confidence) * signal_amplification * direction
             self._pending_signal = None  # consumed
 
-        # Evidence accumulation on R (no clamping)
-        noise = self._rng.normal(0, self._ddm_noise)
-        self._evidence += drift + signal_push + noise
+        # Evidence accumulation (no noise — DD-12)
+        self._evidence += drift + signal_push
 
         # Two-boundary crystallisation: |e| >= theta
         if abs(self._evidence) >= self._crystal_threshold:

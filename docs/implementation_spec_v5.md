@@ -23,6 +23,8 @@
 | DD-8 | Signal push computation timing? | `pending_signal` stores the enforced **strategy direction** only. Magnitude (including receiver's C\_j) is computed at **consumption time** (Stage 4 of next tick). | Clean separation: enforcer sends intent; receiver's susceptibility uses current state. |
 | DD-9 | FIFO capacity vs. window? | FIFO capacity = w\_max (always). Belief computation uses last w\_i entries (w\_i ≤ w\_max). Shrinking window doesn't delete old entries. | Entries can become "visible" again if confidence recovers. |
 | DD-10 | MAP prediction tie-breaking? | **Random uniform** when b\_A = b\_B. | Avoids systematic bias at 50-50. |
+| DD-11 | DDM input signal source? | **b\_exp**, not raw single-tick observations. `f_diff = b_exp_A − b_exp_B`. | Single-tick f\_diff at V=0 is ±1 (binary noise), making crystallisation noise-driven rather than signal-driven. Using b\_exp provides first-level temporal smoothing via the FIFO window; the DDM accumulator then provides second-level integration. Together they ensure crystallisation requires a **sustained** directional signal, not a random walk. |
+| DD-12 | DDM noise σ\_noise? | **Removed.** No additive Gaussian noise in evidence accumulation. | With b\_exp as input, sampling noise is already captured by b\_exp's finite-window variance. Adding σ\_noise on top would double-count uncertainty and re-introduce noise-driven crystallisation at 50-50. The DDM equation reduces to: `e += (1−C) × f_diff + signal_push`. |
 
 ---
 
@@ -46,7 +48,7 @@
 | Parameter | Symbol | Default | Type | Constraint | Source |
 |-----------|--------|---------|------|------------|--------|
 | Enable normative memory | enable\_normative | false | Bool | — | Gates entire normative subsystem. When false, Stages 4–5 are skipped and convergence never triggers (crystallisation layer blocked). |
-| DDM noise (std dev) | σ\_noise | 0.1 | Float64 | ≥ 0 | Germar 2014 |
+| ~~DDM noise (std dev)~~ | ~~σ\_noise~~ | ~~0.1~~ | — | — | **Removed (DD-12).** Sampling noise is captured by b\_exp's finite-window variance. |
 | Crystallisation threshold | θ\_crystal | 3.0 | Float64 | > 0 | calibration |
 | Initial norm strength | σ₀ | 0.8 | Float64 | (0, 1] | calibration |
 | Crisis threshold | θ\_crisis | 10 | Int | ≥ 1 | calibration |
@@ -449,11 +451,12 @@ end
 #### 4.4.1 Pre-Crystallisation: DDM Update
 
 ```julia
-function ddm_update!(agent, obs, params, rng)
-    # a) Signed consistency from full observation set
-    n_A = count(s -> s == 0, obs)
-    n_B = length(obs) - n_A
-    f_diff = (n_A - n_B) / length(obs)      # ∈ [-1, 1]
+function ddm_update!(agent, params)
+    # a) Signed consistency from experience belief (DD-11)
+    #    b_exp is already computed in Stage 2 from the FIFO window.
+    #    This provides first-level temporal smoothing; the accumulator
+    #    provides second-level integration.
+    f_diff = agent.b_exp[1] - agent.b_exp[2]   # b_exp_A − b_exp_B, ∈ [-1, 1]
 
     # b) Drift: confidence-gated
     drift = (1.0 - agent.C) * f_diff
@@ -466,13 +469,10 @@ function ddm_update!(agent, obs, params, rng)
         agent.pending_signal = nothing       # consumed
     end
 
-    # d) Noise
-    noise = randn(rng) * params.sigma_noise
+    # d) Evidence accumulation (no additive noise — DD-12)
+    agent.e += drift + signal_push
 
-    # e) Evidence accumulation
-    agent.e += drift + signal_push + noise
-
-    # f) Crystallisation check
+    # e) Crystallisation check
     if abs(agent.e) >= params.theta_crystal
         agent.r = agent.e > 0 ? 0 : 1   # A if positive, B if negative
         agent.sigma = params.sigma_0
@@ -484,11 +484,17 @@ end
 ```
 
 **Key properties:**
-- At 50-50 (f\_diff = 0): drift = 0. Accumulator does a random walk. Expected time
-  to crystallise ≈ θ² / σ\_noise² = 900 ticks.
-- At 70-30 with C=0.3: drift = 0.7 × 0.4 = 0.28/tick. Expected time ≈ 11 ticks.
+- **Two-level filtering**: FIFO window smooths raw observations into b\_exp;
+  DDM accumulator integrates b\_exp over time. Crystallisation requires a
+  *sustained* directional signal, not a random walk.
+- At 50-50: b\_exp oscillates around 0.5 → f\_diff ≈ 0 → drift ≈ 0 →
+  evidence oscillates near 0 → **crystallisation does not occur** from noise alone.
+- At 70-30 with C=0.3: b\_exp → \~0.7 → f\_diff ≈ 0.4 → drift = 0.7 × 0.4 = 0.28/tick.
+  Expected time to θ=3.0 ≈ 11 ticks.
 - Low-C agents crystallise faster (drift ∝ (1−C)). This is H2.
 - Signal push is independent of drift — it always pushes toward the enforced strategy.
+- **V=0 behaviour**: f\_diff is computed from b\_exp (window-smoothed), not from the
+  single partner observation. A window of 4 with 3A+1B gives f\_diff = 0.5, not ±1.
 
 #### 4.4.2 Post-Crystallisation: Anomaly, Strengthening, Crisis
 
@@ -779,7 +785,7 @@ first reached `convergence_window`.
 | Agent crystallises and gets V observation violations in same tick | Not possible: crystallisation happens in DDM (pre-crystallised path); V observations are processed in the same path as drift. Post-crystallisation branch is not entered until next tick. |
 | All agents crystallised (no DDM active) | Enforcement signals have no effect; model is in steady state unless crises occur |
 | Φ = 0 with V > 0 | Observations feed DDM and anomaly, but no enforcement. Loop 2 active, Loop 3 incomplete. |
-| V = 0 with Φ > 0 | Each agent sees only partner. f\_diff = ±1 (noisy). Enforcement triggers from partner violations. Loop 3 partially active but slow. |
+| V = 0 with Φ > 0 | Each agent sees only partner. f\_diff is computed from b\_exp (window-smoothed), not raw observation. Enforcement triggers from partner violations. Loop 3 partially active but slow. |
 
 ### 7.3 State Transition Diagram: Normative Memory
 
@@ -853,10 +859,10 @@ TICK t:
 ├─ STAGE 4: Normative Update
 │   For all agents:
 │     IF pre-crystallised (r === nothing):
-│       1. Compute f_A - f_B from O_i
-│       2. drift = (1 - C) × (f_A - f_B)
+│       1. f_diff = b_exp_A - b_exp_B  [from Stage 2, DD-11]
+│       2. drift = (1 - C) × f_diff
 │       3. Read & clear pending_signal → compute signal_push
-│       4. e += drift + signal_push + noise
+│       4. e += drift + signal_push  [no noise, DD-12]
 │       5. If |e| ≥ θ_crystal: crystallise (set r, σ₀, a=0)
 │     IF post-crystallised (r !== nothing):
 │       1. Count violations (V obs → anomaly; partner → enforce or anomaly)
@@ -890,7 +896,7 @@ prevent stale-value bugs.
 | action\_i | Stage 1 | Stage 2 (partner obs), Stage 6 | Same tick |
 | prediction\_i | Stage 1 | Stage 3 (accuracy check) | Same tick |
 | fifo | Stage 2 (push!) | Stage 2 (b\_exp computation) | Same tick (after push!) |
-| b\_exp | Stage 2 | Stage 1 of **next tick** (via b\_eff) | +1 tick |
+| b\_exp | Stage 2 | Stage 4 (DDM f\_diff, DD-11), Stage 1 of **next tick** (via b\_eff) | Same tick (Stage 4); +1 tick (Stage 1) |
 | C | Stage 3 | Stage 4 (DDM drift, signal push), Stage 1 of **next tick** (via w → b\_exp) | Same tick (Stage 4); +1 tick (Stage 1) |
 | w | Stage 3 | Stage 2 of **next tick** (b\_exp window) | +1 tick |
 | e | Stage 4 | Stage 4 (same: accumulate) | Same tick (self-read-write) |
@@ -936,10 +942,10 @@ seeded trials and statistical criteria. Run with `n_trials ≥ 30` unless noted.
 | # | Hypothesis | Protocol | Pass criterion |
 |---|------------|----------|----------------|
 | S1 | Dynamic memory accelerates convergence (H1) | Compare dynamic vs. fixed memory, N=100, 1000 ticks, 30 trials each | Mann-Whitney U test: dynamic convergence\_tick < fixed convergence\_tick, p < 0.05 |
-| S2 | DDM crystallisation time at 50-50 | Force b\_exp = [0.5, 0.5] constant; track crystallisation tick per agent, 100 agents × 30 trials | Mean crystallisation tick ∈ [600, 1200] (theoretical: θ²/σ\_noise² = 900). CV > 0.5 (high variance). |
-| S3 | DDM crystallisation time at 70-30 | Force b\_exp = [0.7, 0.3] constant, C = 0.3; track crystallisation tick | Mean crystallisation tick ∈ [5, 25] (theoretical: ≈11 at steady drift) |
+| S2 | DDM does NOT crystallise at 50-50 | Force b\_exp = [0.5, 0.5] constant; track evidence per agent, 100 agents × 30 trials, 3000 ticks | **0% crystallisation**. Evidence e should remain near 0 (f\_diff=0 → drift=0; no noise term). (DD-11, DD-12) |
+| S3 | DDM crystallisation time at 70-30 | Force b\_exp = [0.7, 0.3] constant, C = 0.3; track crystallisation tick | Mean crystallisation tick ∈ [8, 18] (theoretical: drift=0.7×0.4=0.28/tick, θ/drift ≈ 11). Low variance (deterministic drift). |
 | S4 | Low-C agents crystallise first (H2) | Full model, N=100, 30 trials; record (C at crystallisation, crystallisation tick) | Spearman ρ(C, crystallisation\_tick) > 0 (positive: higher C → later crystallisation), p < 0.05 |
 | S5 | Enforcement accelerates crystallisation (H4) | Compare Φ=1 vs. Φ=0, V=5, N=100, 30 trials | Mean crystallisation tick with Φ=1 < without, Mann-Whitney p < 0.05 |
-| S6 | V=0 DDM is noisy | V=0, Φ=0, N=100, 30 trials; track crystallisation times | CV of crystallisation tick > 0.8 (high dispersion from f\_diff = ±1) |
+| S6 | V=0 DDM crystallisation requires majority | V=0, Φ=0, N=100, 30 trials; track crystallisation times | Agents crystallise only after a behavioural majority emerges (majority\_fraction > 0.6). No crystallisation while population is near 50-50. Crystallisation tick should correlate with time-to-majority. |
 | S7 | Full model converges | Dynamic memory, normative, V=5, Φ=1.0, N=100, 3000 ticks, 30 trials | ≥ 50% of trials converge (all 3 layers met for convergence\_window ticks) |
 | S8 | No-normative has no crystallisation | enable\_normative=false, dynamic memory, N=100, 1000 ticks, 30 trials | 0% of trials have any crystallised agents |

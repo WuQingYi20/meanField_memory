@@ -147,7 +147,7 @@ class SimulationEnvironment:
             observation_k: Number of extra interactions to observe
             observation_weight: Weight of observed vs direct experience
             enable_normative: Whether to enable normative memory (V5)
-            ddm_noise: DDM noise sigma_noise
+            ddm_noise: Deprecated (DD-12). Passed through but ignored.
             crystal_threshold: Evidence threshold for crystallisation
             normative_initial_strength: Norm strength on crystallisation
             crisis_threshold: Anomaly count for crisis

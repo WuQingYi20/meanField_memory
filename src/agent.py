@@ -292,19 +292,17 @@ class Agent:
         enforcement_count = 0
 
         if not self._normative_memory.has_norm():
-            # Pre-crystallisation: feed DDM with signed consistency
-            if observed_strategies:
-                counts = np.zeros(2)
-                for s in observed_strategies:
-                    counts[s] += 1
-                total = len(observed_strategies)
-                f_diff = (counts[0] - counts[1]) / total  # signed, in [-1, 1]
+            # Pre-crystallisation: feed DDM with b_exp-based signal (DD-11)
+            # Use experience memory's smoothed belief, not raw single-tick observations.
+            # This ensures crystallisation requires a sustained directional signal.
+            b_exp = self._memory.get_strategy_distribution()
+            f_diff = b_exp[0] - b_exp[1]  # b_exp_A - b_exp_B, in [-1, 1]
 
-                crystallised = self._normative_memory.update_evidence(
-                    confidence=self.trust,
-                    f_diff=f_diff,
-                    signal_amplification=self._signal_amplification,
-                )
+            crystallised = self._normative_memory.update_evidence(
+                confidence=self.trust,
+                f_diff=f_diff,
+                signal_amplification=self._signal_amplification,
+            )
         else:
             # Post-crystallisation: batch count violations and conformities (DD-3)
             n_violations = 0
@@ -504,7 +502,7 @@ def create_agent(
         beta: Trust decay rate (COGNITIVE_LOCKIN, EPSILON_GREEDY)
         exploration_mode: 'random' or 'opposite' (EPSILON_GREEDY)
         enable_normative: Whether to create normative memory (V5)
-        ddm_noise: DDM noise sigma_noise
+        ddm_noise: Deprecated (DD-12). Passed through but ignored.
         crystal_threshold: Evidence threshold theta_crystal
         normative_initial_strength: Norm strength on crystallisation
         crisis_threshold: Anomaly count for crisis
