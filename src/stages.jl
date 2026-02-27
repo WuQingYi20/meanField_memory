@@ -350,23 +350,18 @@ end
 # ══════════════════════════════════════════════════════════════
 
 """
-    ddm_update!(agent::AgentState, obs_pool::Vector{Int8}, obs_start::Int, obs_end::Int,
-                params::SimulationParams, rng::AbstractRNG)
+    ddm_update!(agent::AgentState, params::SimulationParams)
 
-Pre-crystallisation DDM evidence accumulation.
+Pre-crystallisation DDM evidence accumulation (DD-11, DD-12).
+
+Uses b_exp (experience belief) as input signal instead of raw single-tick
+observations. No additive noise — sampling noise is captured by b_exp's
+finite-window variance. This ensures crystallisation requires a sustained
+directional signal, not a random walk.
 """
-function ddm_update!(agent::AgentState, obs_pool::Vector{Int8}, obs_start::Int, obs_end::Int,
-                     params::SimulationParams, rng::AbstractRNG)
-    # a) Signed consistency from full observation set
-    n_obs = obs_end - obs_start + 1
-    n_A = 0
-    for idx in obs_start:obs_end
-        if obs_pool[idx] == STRATEGY_A
-            n_A += 1
-        end
-    end
-    n_B = n_obs - n_A
-    f_diff = (n_A - n_B) / n_obs
+function ddm_update!(agent::AgentState, params::SimulationParams)
+    # a) Signed consistency from experience belief (DD-11)
+    f_diff = 2.0 * agent.b_exp_A - 1.0   # = b_exp_A - b_exp_B, ∈ [-1, 1]
 
     # b) Drift: confidence-gated
     drift = (1.0 - agent.C) * f_diff
@@ -379,13 +374,10 @@ function ddm_update!(agent::AgentState, obs_pool::Vector{Int8}, obs_start::Int, 
         agent.pending_signal = NO_SIGNAL  # consumed
     end
 
-    # d) Noise
-    noise = randn(rng) * params.sigma_noise
+    # d) Evidence accumulation (no noise — DD-12)
+    agent.e += drift + signal_push
 
-    # e) Evidence accumulation
-    agent.e += drift + signal_push + noise
-
-    # f) Crystallisation check
+    # e) Crystallisation check
     if abs(agent.e) >= params.theta_crystal
         agent.r = agent.e > 0 ? STRATEGY_A : STRATEGY_B
         agent.sigma = params.sigma_0
@@ -399,13 +391,15 @@ end
 """
     post_crystal_update!(agent::AgentState, agent_id::Int,
                          obs_pool::Vector{Int8}, obs_start::Int, obs_end::Int,
-                         ws::TickWorkspace, params::SimulationParams)
+                         ws::TickWorkspace, params::SimulationParams,
+                         agents::Vector{AgentState})
 
 Post-crystallisation: anomaly tracking, strengthening, crisis, dissolution.
 """
 function post_crystal_update!(agent::AgentState, agent_id::Int,
                                obs_pool::Vector{Int8}, obs_start::Int, obs_end::Int,
-                               ws::TickWorkspace, params::SimulationParams)
+                               ws::TickWorkspace, params::SimulationParams,
+                               agents::Vector{AgentState})
     norm = agent.r
 
     # Separate partner observation (first) from V observations
@@ -434,7 +428,14 @@ function post_crystal_update!(agent::AgentState, agent_id::Int,
         can_enforce = (params.Phi > 0) && (agent.sigma > params.theta_enforce)
         if can_enforce
             enforcement_triggered = true
-            # Partner violation NOT counted as anomaly
+            # DD-7: check if enforcement can actually work
+            pid = ws.partner_id[agent_id]
+            if agents[pid].r != NO_NORM
+                # Partner is post-crystallised → signal will be wasted
+                # Violation counts as anomaly (irremediable inconsistency)
+                partner_violation = 1
+            end
+            # If partner is pre-crystallised → signal can change them → no anomaly
         else
             partner_violation = 1
         end
@@ -502,11 +503,11 @@ function stage_4_normative!(agents::Vector{AgentState}, ws::TickWorkspace,
         obs_end = ws.obs_offset[i + 1] - 1
 
         if agents[i].r == NO_NORM
-            # Pre-crystallisation: DDM
-            ddm_update!(agents[i], ws.obs_pool, obs_start, obs_end, params, rng)
+            # Pre-crystallisation: DDM (uses b_exp, not raw observations — DD-11)
+            ddm_update!(agents[i], params)
         else
             # Post-crystallisation: anomaly / strengthening / crisis
-            post_crystal_update!(agents[i], i, ws.obs_pool, obs_start, obs_end, ws, params)
+            post_crystal_update!(agents[i], i, ws.obs_pool, obs_start, obs_end, ws, params, agents)
         end
     end
 

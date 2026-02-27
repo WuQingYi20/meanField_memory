@@ -15,7 +15,7 @@ Base.@kwdef struct SimulationParams
 
     # Normative layer
     enable_normative::Bool = false
-    sigma_noise::Float64 = 0.1
+    sigma_noise::Float64 = 0.0   # Deprecated (DD-12): no longer used in DDM
     theta_crystal::Float64 = 3.0
     sigma_0::Float64 = 0.8
     theta_crisis::Int = 10
@@ -62,6 +62,7 @@ function validate(params::SimulationParams)
     params.w_base >= 1 || throw(ArgumentError("w_base must be ≥ 1, got $(params.w_base)"))
     params.w_max >= params.w_base || throw(ArgumentError("w_max must be ≥ w_base: w_max=$(params.w_max), w_base=$(params.w_base)"))
 
+    # sigma_noise is deprecated (DD-12) but we still accept any non-negative value for backward compat
     params.sigma_noise >= 0 || throw(ArgumentError("sigma_noise must be ≥ 0, got $(params.sigma_noise)"))
     params.theta_crystal > 0 || throw(ArgumentError("theta_crystal must be > 0, got $(params.theta_crystal)"))
     0 < params.sigma_0 <= 1 || throw(ArgumentError("sigma_0 must be in (0,1], got $(params.sigma_0)"))

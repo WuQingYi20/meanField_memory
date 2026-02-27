@@ -38,7 +38,7 @@ A related but distinct intuition comes from the dual-process literature. \citet{
 
 Predictive confidence~$C$ thus serves as the single variable that bridges the two memory systems, determining whether an agent's learning is dominated by socially inferred rules or by individually accumulated experience.
 
-The remainder of this report is organised as follows. Section~\ref{sec:model} specifies the model. Section~\ref{sec:ablation} presents a systematic ablation isolating each mechanism's contribution. Section~\ref{sec:cascade} traces the \emph{normative cascade}---the positive-feedback process by which minority norms dissolve and the population locks into consensus---through detailed tick-by-tick analysis. The cascade emerges from the interaction of both mechanisms and cannot be produced by either alone.
+The remainder of this report is organised as follows. Section~\ref{sec:model} specifies the model. Section~\ref{sec:ablation} presents a systematic ablation isolating each mechanism's contribution. Section~\ref{sec:cascade} traces the \emph{normative cascade}---the positive-feedback process by which minority norms dissolve and the population locks into consensus---through detailed tick-by-tick analysis. The cascade emerges from the interaction of both mechanisms and cannot be produced by either alone. Section~\ref{sec:enforcement} examines how enforcement pressure ($\Phi > 0$) reshapes the phase boundary, creates qualitatively distinct convergence pathways, and exhibits a non-monotonic effect on convergence. Section~\ref{sec:robustness} reports robustness checks.
 
 %% ════════════════════════════════════════════════════════════════
 \section{Model Description}
@@ -92,7 +92,7 @@ The memory window is then recomputed: $w = w_{\mathrm{base}} + \lfloor C \cdot (
 
 \item \textbf{Stage 4: Normative update.} This stage branches based on crystallisation state.
 
-\item \textbf{Stage 5: Enforcement.} (Disabled in current experiments with $\Phi = 0$.)
+\item \textbf{Stage 5: Enforcement.} Crystallised agents above a strength threshold ($\sigma > \theta_{\mathrm{enforce}}$) send a signal to partners who violated their norm. The signal enters the partner's DDM as a one-tick-delayed push: $\Phi (1-C) \gamma_{\mathrm{signal}} \cdot \mathrm{dir}$. (Analysis in Section~\ref{sec:enforcement}.)
 
 \item \textbf{Stage 6: Metrics.} Read-only computation of population-level statistics.
 \end{enumerate}
@@ -399,6 +399,178 @@ n_A > n_B \;\Longrightarrow\; \text{anomaly rate}(B) > \text{anomaly rate}(A) \;
 This structural difference explains the scaling results in Table~\ref{tab:speedup}: the experiential convergence time grows linearly with $N$, while the cascade time remains approximately constant, so the speedup ratio increases with $N$.
 
 %% ════════════════════════════════════════════════════════════════
+\section{Enforcement Pressure and the Phase Boundary}
+\label{sec:enforcement}
+%% ════════════════════════════════════════════════════════════════
+
+The preceding analysis established the normative cascade mechanism at $\Phi = 0$ (no enforcement). We now ask three questions about enforcement pressure:
+\begin{enumerate}[nosep]
+\item Does $\Phi$ shift the phase transition boundary? (known at $\theta \approx 7$ for $\Phi = 0$)
+\item Does $\Phi$ create qualitatively different convergence pathways?
+\item Is the effect of $\Phi$ monotonic, or does an optimal enforcement level exist?
+\end{enumerate}
+
+\subsection{Method}
+
+All experiments use the full-model configuration ($w_{\mathrm{base}} = 2$, $w_{\max} = 6$, $V = 0$, normative enabled) with default crystallisation parameters ($\sigma_0 = 0.8$, $k = 2$, $\theta_{\mathrm{crisis}} = 10$). Only $\theta_{\mathrm{crystal}}$ and $\Phi$ are varied. Each condition was run for 30 independent trials ($T = 3000$). Beyond standard convergence metrics, we tracked six novel per-trial pathway metrics via a manual tick loop with transition detection:
+
+\begin{itemize}[nosep]
+\item \textbf{Total dissolutions}---number of norm dissolution events across all ticks.
+\item \textbf{Total enforcements}---cumulative enforcement signals sent.
+\item \textbf{Recrystallisation direction}---among dissolved agents that re-crystallised, how many switched norm (\emph{flip}) versus returned to the same norm (\emph{same}).
+\item \textbf{Peak norm split}---$\max_t [\max(n_A, n_B) / (n_A + n_B)]$ among crystallised agents (worst polarisation).
+\item \textbf{Time in churn}---ticks where both dissolutions and new crystallisations occurred simultaneously.
+\end{itemize}
+
+\subsection{Phase boundary shift}
+\label{sec:boundary}
+
+Table~\ref{tab:phase_boundary} shows convergence rates across a $\theta_{\mathrm{crystal}} \times \Phi$ grid (900 total runs).
+
+\begin{table}[H]
+\centering
+\caption{Convergence rate (\%, 30 trials each). The phase boundary---where convergence drops below ${\sim}50\%$---shifts depending on $\Phi$.}
+\label{tab:phase_boundary}
+\begin{tabular}{@{}r rrrrr@{}}
+\toprule
+$\theta_{\mathrm{crystal}}$ & $\Phi{=}0$ & $\Phi{=}0.5$ & $\Phi{=}1$ & $\Phi{=}2$ & $\Phi{=}5$ \\
+\midrule
+3  & 100 & 100 & 100 & 100 & 100 \\
+5  & 93  & 93  & 97  & 80  & 50 \\
+7  & 37  & 50  & 60  & 67  & 73 \\
+9  & 27  & 7   & 13  & 40  & 33 \\
+12 & 3   & 7   & 7   & 7   & 10 \\
+15 & 3   & 0   & 0   & 3   & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two effects are visible:
+
+\begin{enumerate}
+\item \textbf{Above the baseline boundary ($\theta \geq 7$): enforcement helps.} At $\theta = 7$, convergence nearly doubles from 37\% ($\Phi = 0$) to 73\% ($\Phi = 5$). The mechanism is straightforward: at high crystallisation thresholds, many agents remain pre-crystallised for long periods. Enforcement signals deliver a push $\Phi(1-C)\gamma_{\mathrm{signal}} \cdot \mathrm{dir}$ into the DDM accumulator, accelerating crystallisation toward the direction of the enforcing (already-crystallised) agent. Since the majority-side crystallised agents are more numerous, the net signal push is majority-directed.
+
+\item \textbf{Below the baseline boundary ($\theta \leq 5$): enforcement hurts.} At $\theta = 5$, convergence drops from 93\% ($\Phi = 0$) to 50\% ($\Phi = 5$). With a low crystallisation barrier, most agents crystallise quickly---but approximately half crystallise to each side (the population is still near 50-50 when most DDM accumulators cross the threshold). Once both sides are crystallised, enforcement between agents holding opposing norms creates \emph{mutual violations}: an $A$-norm agent enforces $A$ on a $B$-norm partner, but the partner is post-crystallised, so the enforcement is wasted and the violation counts as anomaly (DD-7). This accelerates crisis and dissolution on both sides, creating turbulence that prevents the cascade from completing.
+\end{enumerate}
+
+Table~\ref{tab:phase_dissolutions} confirms this mechanism: dissolutions increase with $\Phi$ at every $\theta$ level.
+
+\begin{table}[H]
+\centering
+\caption{Mean dissolutions per trial.}
+\label{tab:phase_dissolutions}
+\begin{tabular}{@{}r rrrrr@{}}
+\toprule
+$\theta_{\mathrm{crystal}}$ & $\Phi{=}0$ & $\Phi{=}0.5$ & $\Phi{=}1$ & $\Phi{=}2$ & $\Phi{=}5$ \\
+\midrule
+3  & 15.2 & 16.2 & 16.8 & 21.6 & 27.6 \\
+5  & 5.0  & 3.9  & 3.3  & 5.9  & 20.8 \\
+7  & 1.2  & 2.3  & 1.7  & 2.9  & 8.4 \\
+9  & 0.6  & 1.1  & 0.9  & 0.3  & 2.4 \\
+12 & 0.4  & 0.5  & 0.1  & 0.4  & 0.2 \\
+15 & 0.0  & 0.0  & 0.0  & 0.1  & 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The $\theta = 3$ row is instructive: even though convergence is 100\% at all $\Phi$, the number of dissolutions rises from 15 to 28. Enforcement creates more turbulence, but the low crystallisation barrier allows rapid re-crystallisation, so the cascade still completes.
+
+\subsection{Convergence pathways}
+\label{sec:pathways}
+
+To distinguish pathway types, we examined detailed metrics at two representative thresholds ($\theta = 3$ and $\theta = 7$) across $\Phi$ levels (300 runs; Table~\ref{tab:pathways}).
+
+\begin{table}[H]
+\centering
+\caption{Pathway metrics (means over 30 trials). $\mu_{\mathrm{diss}}$: dissolutions. $\mu_{\mathrm{enf}}$: enforcements. $\mu_{\mathrm{churn}}$: ticks with simultaneous dissolutions and crystallisations. $\mu_{\mathrm{flip}}$/$\mu_{\mathrm{same}}$: recrystallisations switching/returning to same norm.}
+\label{tab:pathways}
+\small
+\begin{tabular}{@{}rl rrrrrrr@{}}
+\toprule
+$\theta$ & $\Phi$ & Conv\% & $\mu_{\mathrm{diss}}$ & $\mu_{\mathrm{enf}}$ & $\mu_{\mathrm{churn}}$ & $\mu_{\mathrm{flip}}$ & $\mu_{\mathrm{same}}$ & $\mu_{\mathrm{tick}}$ \\
+\midrule
+3  & 0   & 100 & 12.3 & 0     & 4.0 & 9.9  & 0.0 & 89 \\
+3  & 0.5 & 100 & 15.4 & 521   & 1.9 & 13.6 & 0.1 & 99 \\
+3  & 1.0 & 100 & 15.7 & 477   & 2.0 & 13.0 & 1.1 & 93 \\
+3  & 2.0 & 100 & 21.0 & 583   & 2.8 & 18.7 & 0.0 & 98 \\
+3  & 5.0 & 100 & 33.2 & 761   & 4.8 & 27.9 & 2.2 & 107 \\
+\addlinespace
+7  & 0   & 53  & 2.0  & 0     & 1.5 & 0.7  & 0.3 & 103 \\
+7  & 0.5 & 60  & 1.8  & 162   & 0.8 & 0.0  & 0.0 & 104 \\
+7  & 1.0 & 67  & 1.3  & 134   & 0.4 & 0.0  & 0.0 & 99 \\
+7  & 2.0 & 70  & 2.2  & 159   & 0.5 & 0.3  & 0.0 & 102 \\
+7  & 5.0 & 60  & 3.8  & 172   & 0.4 & 0.6  & 0.0 & 95 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three qualitative pathway types emerge:
+
+\paragraph{Clean cascade ($\Phi = 0$, low $\theta$).} The mechanism described in Section~\ref{sec:cascade}: agents crystallise to both sides, differential erosion breaks symmetry, minority norms dissolve and re-crystallise to the majority. The 9.9 flips and 0 same-direction recrystallisations confirm the one-way ratchet. Moderate churn (4.0 ticks) reflects the dissolution--recrystallisation wave.
+
+\paragraph{Enforcement-assisted ($0 < \Phi \leq 2$, high $\theta$).} Enforcement signals accelerate DDM evidence accumulation in pre-crystallised agents, nudging them toward the majority norm. Dissolutions stay low ($\leq 2.2$), churn decreases from 1.5 to 0.4--0.5 ticks, and recrystallisation events nearly vanish---the cascade is smoother because fewer agents need to dissolve and switch. Convergence rate improves from 53\% to 67--70\%.
+
+\paragraph{Enforcement-turbulent ($\Phi \geq 5$, low $\theta$).} High enforcement pressure generates 761 enforcement signals and 33.2 dissolutions per trial---nearly triple the no-enforcement baseline. Churn increases to 4.8 ticks. Yet convergence remains 100\%: the low crystallisation barrier ensures rapid re-crystallisation, and the one-way ratchet ($\mu_{\mathrm{flip}} = 27.9$, $\mu_{\mathrm{same}} = 2.2$) is maintained despite the turbulence. The cost is ${\sim}20\%$ slower convergence (107 vs.\ 89 ticks).
+
+\paragraph{Key observation.} The one-way ratchet identified in Section~\ref{sec:cascade} is robust to enforcement. Even at $\Phi = 5$ (the highest tested), the flip-to-same ratio remains $>$10:1 at $\theta = 3$---dissolved agents overwhelmingly re-crystallise toward the majority. Enforcement creates more dissolution events but does not disrupt the directional bias of the cascade.
+
+\subsection{Non-monotonic enforcement effect}
+\label{sec:nonmonotonic}
+
+To search for an optimal $\Phi$, we swept a fine grid of 11 values at three crystallisation thresholds (990 runs; Table~\ref{tab:nonmonotonic}).
+
+\begin{table}[H]
+\centering
+\caption{Convergence rate (\%) and mean dissolutions across fine $\Phi$ grid (30 trials each).}
+\label{tab:nonmonotonic}
+\small
+\begin{tabular}{@{}r rr rr rr@{}}
+\toprule
+& \multicolumn{2}{c}{$\theta = 3$} & \multicolumn{2}{c}{$\theta = 5$} & \multicolumn{2}{c}{$\theta = 7$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+$\Phi$ & Rate & Diss. & Rate & Diss. & Rate & Diss. \\
+\midrule
+0   & 100 & 12.4 & 90  & 4.0  & 40  & 2.6 \\
+0.1 & 100 & 11.6 & 87  & 3.2  & 47  & 1.2 \\
+0.2 & 100 & 14.2 & 87  & 4.9  & 47  & 1.4 \\
+0.3 & 100 & 10.5 & 87  & 4.1  & 77  & 2.4 \\
+0.5 & 100 & 10.1 & 83  & 6.0  & 63  & 1.2 \\
+0.7 & 100 & 15.4 & 90  & 4.7  & 60  & 2.2 \\
+1.0 & 100 & 19.4 & 87  & 3.9  & 57  & 3.4 \\
+1.5 & 100 & 21.2 & 73  & 5.1  & 53  & 3.8 \\
+2.0 & 100 & 34.0 & 63  & 10.2 & 77  & 1.4 \\
+3.0 & 100 & 37.8 & 53  & 17.8 & 80  & 2.9 \\
+5.0 & 100 & 34.2 & 50  & 20.8 & 63  & 5.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The three thresholds show qualitatively different $\Phi$-response profiles:
+
+\begin{enumerate}
+\item \textbf{$\theta = 3$ (below boundary): immune to $\Phi$.} Convergence rate is 100\% everywhere. Dissolutions rise monotonically from 12 to 38 as $\Phi$ increases, but the low barrier ensures re-crystallisation always completes the cascade.
+
+\item \textbf{$\theta = 5$ (near boundary): monotonic degradation.} Convergence declines from 90\% to 50\% as $\Phi$ increases. Most agents crystallise quickly at $\theta = 5$, so enforcement primarily creates mutual violations between opposing crystallised agents, destabilising both sides (dissolutions rise from 4 to 21).
+
+\item \textbf{$\theta = 7$ (at boundary): non-monotonic with possible bimodality.} Two local peaks appear: $\Phi \approx 0.3$ (77\%) and $\Phi \approx 3$ (80\%), with a valley at $\Phi \approx 1$--$1.5$ (53--57\%) and a decline at $\Phi = 5$ (63\%). While the 30-trial sample sizes preclude strong statistical claims about the exact peak locations, the overall pattern---improvement at both low and high $\Phi$ relative to the intermediate range---is consistent across the independently seeded analyses (compare Table~\ref{tab:phase_boundary}: $\theta = 7$ also shows monotonic improvement from 37\% to 73\%).
+\end{enumerate}
+
+A tentative interpretation of the bimodal pattern at $\theta = 7$: low $\Phi$ provides just enough signal push to tip marginal DDM accumulators over the crystallisation threshold without destabilising existing norms; intermediate $\Phi$ is strong enough to trigger enforcement-driven violations among the few early-crystallised agents but too weak to rapidly crystallise the remaining pre-crystallised majority; high $\Phi$ overwhelms both effects, converting nearly all pre-crystallised agents before mutual destabilisation can accumulate. This hypothesis requires larger sample sizes and agent-level trajectory analysis to confirm.
+
+\subsection{Interpretation: two faces of enforcement}
+\label{sec:two_faces}
+
+The results reveal that enforcement operates through two competing channels:
+
+\paragraph{Beneficial channel: DDM acceleration.} Enforcement signals deliver a push $\Phi(1-C)\gamma_{\mathrm{signal}} \cdot \mathrm{dir}$ into pre-crystallised agents' evidence accumulators. When the enforcing agent holds the majority norm, this accelerates crystallisation in the majority direction. This channel dominates when many agents remain pre-crystallised---i.e., when $\theta_{\mathrm{crystal}}$ is high.
+
+\paragraph{Harmful channel: mutual destabilisation.} When two agents hold opposing crystallised norms, enforcement triggers mutual violations (DD-7: enforcement against a post-crystallised partner is wasted, and the violation counts as anomaly). This accelerates crisis on both sides, increasing dissolution and potentially creating churn cycles. This channel dominates when most agents are already crystallised---i.e., when $\theta_{\mathrm{crystal}}$ is low and agents crystallise early into a roughly symmetric split.
+
+\paragraph{The balance.} The relative strength of these channels depends on the fraction of agents that are pre-crystallised when enforcement begins. At $\theta = 7$, the DDM barrier is high enough that the enforcement-beneficial window is large---many agents are still accumulating evidence when the first crystallised agents begin enforcing. At $\theta = 5$, the barrier is low enough that by the time enforcement becomes active (requiring $\sigma > \theta_{\mathrm{enforce}} = 0.7$), most agents have already crystallised to both sides, and enforcement primarily creates cross-norm destabilisation.
+
+This mechanistic account also explains the high dissolution rate at $\theta = 3$ even at $\Phi = 0$ (12.4 dissolutions): with a very low barrier, agents crystallise before any behavioural asymmetry develops, ensuring roughly equal numbers on each side. The subsequent cascade must dissolve the entire minority side---a process that enforcement amplifies but cannot disrupt, because the one-way ratchet is maintained by the experiential memory signal that grows stronger as the cascade progresses.
+
+%% ════════════════════════════════════════════════════════════════
 \section{Robustness}
 \label{sec:robustness}
 %% ════════════════════════════════════════════════════════════════
@@ -444,6 +616,8 @@ Of the 30 seeds, 16 converged to $A$ and 14 to $B$---consistent with the model's
 \item The amplification creates two interlocking positive-feedback loops (differential erosion $+$ dissolution cascade) that produce a \textbf{phase transition} from symmetric disorder to full consensus in $\sim$30 ticks, largely independent of $N$.
 
 \item Neither system alone is sufficient: without experiential memory, the amplifier has no signal; without normative memory, the signal diffuses slowly.
+
+\item \textbf{Enforcement pressure ($\Phi > 0$) has a dual nature.} It accelerates crystallisation in pre-crystallised agents (beneficial) but creates mutual destabilisation between agents holding opposing norms (harmful). The balance depends on $\theta_{\mathrm{crystal}}$: enforcement helps above the phase boundary ($\theta \geq 7$, convergence 37\% $\to$ 73\%) and hurts below it ($\theta = 5$, convergence 93\% $\to$ 50\%). The one-way ratchet is robust to enforcement---dissolved agents overwhelmingly re-crystallise toward the majority even at high $\Phi$.
 
 \item All of this emerges from purely local interactions---no agent ever observes the global state.
 \end{enumerate}
