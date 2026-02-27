@@ -19,7 +19,7 @@
 | DD-4 | What does each V observation contain? | One randomly selected participant's strategy from a random interaction (not involving the observer). | Matches \|O\_i(t)\| = 1 + V. |
 | DD-5 | Enforcement signal timing? | **One-tick delay.** Written in Stage 5 of tick t, consumed in Stage 4 of tick t+1. | Pipeline order: Stage 4 (DDM) before Stage 5 (enforcement). |
 | DD-6 | What triggers enforcement? | **Partner violation only.** V additional observations never trigger enforcement (only anomaly). | Eq. `violation_response` specifies "partner s\_j ≠ r\_i". |
-| DD-7 | Does enforcement replace anomaly? | **Yes**, for the partner observation only. If enforcement is triggered, that partner violation is NOT counted as anomaly. | Eq. `violation_response`: enforce OR accumulate, not both. |
+| DD-7 | Does enforcement replace anomaly? | **Conditional.** If the violating partner is pre-crystallised (r = nothing), enforcement replaces anomaly — the signal can change their behaviour. If the partner is post-crystallised (r ≠ nothing), enforcement is sent but the violation **also** counts as anomaly — the signal will be wasted (consumed and ignored by post-crystallised receivers), so the violation represents an irremediable inconsistency. | Prevents norm immortality: when two agents hold opposing crystallised norms, mutual violations accumulate anomalies on both sides, eventually triggering crises. Enforcement is only "free" when it can actually work. |
 | DD-8 | Signal push computation timing? | `pending_signal` stores the enforced **strategy direction** only. Magnitude (including receiver's C\_j) is computed at **consumption time** (Stage 4 of next tick). | Clean separation: enforcer sends intent; receiver's susceptibility uses current state. |
 | DD-9 | FIFO capacity vs. window? | FIFO capacity = w\_max (always). Belief computation uses last w\_i entries (w\_i ≤ w\_max). Shrinking window doesn't delete old entries. | Entries can become "visible" again if confidence recovers. |
 | DD-10 | MAP prediction tie-breaking? | **Random uniform** when b\_A = b\_B. | Avoids systematic bias at 50-50. |
@@ -522,7 +522,14 @@ function post_crystal_update!(agent, agent_id, obs, ts, params)
         can_enforce = (params.Phi > 0) && (agent.sigma > params.theta_enforce)
         if can_enforce
             enforcement_triggered = true
-            # Partner violation NOT counted as anomaly
+            # DD-7: check if enforcement can actually work
+            partner_id = find_partner(agent_id, ts.pairs)
+            if agents[partner_id].r != nothing
+                # Partner is post-crystallised → signal will be wasted
+                # Violation counts as anomaly (irremediable inconsistency)
+                partner_violation = 1
+            end
+            # If partner is pre-crystallised → signal can change them → no anomaly
         else
             partner_violation = 1
         end
@@ -778,7 +785,7 @@ first reached `convergence_window`.
 | FIFO empty (t=0) | b\_exp = [0.5, 0.5] |
 | FIFO shorter than w | Use all entries in FIFO |
 | b\_eff = [0.5, 0.5] (tie) | Action: 50-50 random. Prediction: random tie-break (DD-10). |
-| Both agents enforce each other | Both signals sent; both wasted (both post-crystallised) |
+| Both agents enforce each other | Both signals sent; both wasted (both post-crystallised). Both violations count as anomaly (DD-7: partner is post-crystallised). Mutual enforcement between opposing norms drives both toward crisis. |
 | Signal to post-crystallised agent | Consumed and ignored (DDM inactive) |
 | Signal to agent who dissolves same tick | Dissolution in Stage 4 resets e=0; signal from Stage 5 is written to pending\_signal; consumed in next tick's Stage 4 where agent is pre-crystallised → signal takes effect |
 | Crisis reduces σ but not below σ\_min | Norm survives weakened; anomaly counter resets; recovery via strengthening possible |

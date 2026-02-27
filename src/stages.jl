@@ -391,13 +391,15 @@ end
 """
     post_crystal_update!(agent::AgentState, agent_id::Int,
                          obs_pool::Vector{Int8}, obs_start::Int, obs_end::Int,
-                         ws::TickWorkspace, params::SimulationParams)
+                         ws::TickWorkspace, params::SimulationParams,
+                         agents::Vector{AgentState})
 
 Post-crystallisation: anomaly tracking, strengthening, crisis, dissolution.
 """
 function post_crystal_update!(agent::AgentState, agent_id::Int,
                                obs_pool::Vector{Int8}, obs_start::Int, obs_end::Int,
-                               ws::TickWorkspace, params::SimulationParams)
+                               ws::TickWorkspace, params::SimulationParams,
+                               agents::Vector{AgentState})
     norm = agent.r
 
     # Separate partner observation (first) from V observations
@@ -426,7 +428,14 @@ function post_crystal_update!(agent::AgentState, agent_id::Int,
         can_enforce = (params.Phi > 0) && (agent.sigma > params.theta_enforce)
         if can_enforce
             enforcement_triggered = true
-            # Partner violation NOT counted as anomaly
+            # DD-7: check if enforcement can actually work
+            pid = ws.partner_id[agent_id]
+            if agents[pid].r != NO_NORM
+                # Partner is post-crystallised → signal will be wasted
+                # Violation counts as anomaly (irremediable inconsistency)
+                partner_violation = 1
+            end
+            # If partner is pre-crystallised → signal can change them → no anomaly
         else
             partner_violation = 1
         end
@@ -498,7 +507,7 @@ function stage_4_normative!(agents::Vector{AgentState}, ws::TickWorkspace,
             ddm_update!(agents[i], params)
         else
             # Post-crystallisation: anomaly / strengthening / crisis
-            post_crystal_update!(agents[i], i, ws.obs_pool, obs_start, obs_end, ws, params)
+            post_crystal_update!(agents[i], i, ws.obs_pool, obs_start, obs_end, ws, params, agents)
         end
     end
 
