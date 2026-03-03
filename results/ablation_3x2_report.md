@@ -30,15 +30,15 @@
 | Exp Level | Norm OFF conv | Norm OFF mean tick | Norm ON conv | Norm ON mean tick | Speedup |
 |-----------|:---:|---:|:---:|---:|---:|
 | None (frozen) | 0/100 | -- | 0/100 | -- | -- |
-| Fixed (w=5) | 100/100 | 231.6 | 100/100 | 29.9 | 7.7x |
-| Dynamic [2,6] | 100/100 | 76.1 | 100/100 | 25.4 | 3.0x |
+| Fixed (w=5) | 100/100 | 231.6 | 100/100 | 30.3 | 7.6x |
+| Dynamic [2,6] | 100/100 | 76.1 | 100/100 | 25.1 | 3.0x |
 
 ### Final Majority Fraction (all 100 trials, including non-converged)
 
 | Exp Level | | Mean | Median | Min | Max | Std |
 |-----------|------|---:|---:|---:|---:|---:|
 | None (frozen) | Norm OFF | 0.598 | 0.6 | 0.5 | 0.85 | 0.077 |
-|  | Norm ON | 0.632 | 0.6 | 0.5 | 0.85 | 0.083 |
+|  | Norm ON | 0.624 | 0.6 | 0.5 | 0.9 | 0.09 |
 | Fixed (w=5) | Norm OFF | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 |
 |  | Norm ON | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 |
 | Dynamic [2,6] | Norm OFF | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 |
@@ -49,7 +49,7 @@
 | Exp Level | | Mean | Median | Min | Max |
 |-----------|------|---:|---:|---:|---:|
 | None (frozen) | Norm OFF | 0.481 | 0.5 | 0.1 | 0.9 |
-|  | Norm ON | 0.521 | 0.5 | 0.1 | 0.9 |
+|  | Norm ON | 0.514 | 0.5 | 0.1 | 0.8 |
 | Fixed (w=5) | Norm OFF | 1.0 | 1.0 | 1.0 | 1.0 |
 |  | Norm ON | 1.0 | 1.0 | 1.0 | 1.0 |
 | Dynamic [2,6] | Norm OFF | 1.0 | 1.0 | 1.0 | 1.0 |
@@ -63,15 +63,15 @@
 | Exp Level | Norm OFF conv | Norm OFF mean tick | Norm ON conv | Norm ON mean tick | Speedup |
 |-----------|:---:|---:|:---:|---:|---:|
 | None (frozen) | 0/100 | -- | 0/100 | -- | -- |
-| Fixed (w=5) | 91/100 | 1125.0 | 100/100 | 42.5 | 26.5x |
-| Dynamic [2,6] | 100/100 | 230.7 | 100/100 | 37.1 | 6.2x |
+| Fixed (w=5) | 91/100 | 1125.0 | 100/100 | 44.5 | 25.3x |
+| Dynamic [2,6] | 100/100 | 230.7 | 100/100 | 34.2 | 6.7x |
 
 ### Final Majority Fraction (all 100 trials, including non-converged)
 
 | Exp Level | | Mean | Median | Min | Max | Std |
 |-----------|------|---:|---:|---:|---:|---:|
-| None (frozen) | Norm OFF | 0.534 | 0.53 | 0.5 | 0.63 | 0.028 |
-|  | Norm ON | 0.615 | 0.62 | 0.51 | 0.76 | 0.052 |
+| None (frozen) | Norm OFF | 0.535 | 0.53 | 0.5 | 0.63 | 0.028 |
+|  | Norm ON | 0.584 | 0.585 | 0.5 | 0.74 | 0.051 |
 | Fixed (w=5) | Norm OFF | 0.97 | 1.0 | 0.51 | 1.0 | 0.097 |
 |  | Norm ON | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 |
 | Dynamic [2,6] | Norm OFF | 0.993 | 1.0 | 0.87 | 1.0 | 0.025 |
@@ -82,7 +82,7 @@
 | Exp Level | | Mean | Median | Min | Max |
 |-----------|------|---:|---:|---:|---:|
 | None (frozen) | Norm OFF | 0.49 | 0.48 | 0.3 | 0.7 |
-|  | Norm ON | 0.529 | 0.52 | 0.38 | 0.68 |
+|  | Norm ON | 0.515 | 0.52 | 0.3 | 0.72 |
 | Fixed (w=5) | Norm OFF | 0.961 | 1.0 | 0.42 | 1.0 |
 |  | Norm ON | 1.0 | 1.0 | 1.0 | 1.0 |
 | Dynamic [2,6] | Norm OFF | 0.987 | 1.0 | 0.76 | 1.0 |
@@ -96,15 +96,15 @@
 | Exp Level | Norm OFF conv | Norm OFF mean tick | Norm ON conv | Norm ON mean tick | Speedup |
 |-----------|:---:|---:|:---:|---:|---:|
 | None (frozen) | 0/100 | -- | 0/100 | -- | -- |
-| Fixed (w=5) | 24/100 | 2079.4 | 100/100 | 53.8 | 38.7x |
-| Dynamic [2,6] | 100/100 | 467.2 | 100/100 | 43.4 | 10.8x |
+| Fixed (w=5) | 24/100 | 2079.4 | 100/100 | 52.3 | 39.8x |
+| Dynamic [2,6] | 100/100 | 467.2 | 100/100 | 43.2 | 10.8x |
 
 ### Final Majority Fraction (all 100 trials, including non-converged)
 
 | Exp Level | | Mean | Median | Min | Max | Std |
 |-----------|------|---:|---:|---:|---:|---:|
 | None (frozen) | Norm OFF | 0.518 | 0.514 | 0.5 | 0.556 | 0.014 |
-|  | Norm ON | 0.616 | 0.614 | 0.546 | 0.678 | 0.025 |
+|  | Norm ON | 0.589 | 0.592 | 0.534 | 0.652 | 0.025 |
 | Fixed (w=5) | Norm OFF | 0.787 | 0.797 | 0.5 | 1.0 | 0.159 |
 |  | Norm ON | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 |
 | Dynamic [2,6] | Norm OFF | 0.957 | 0.958 | 0.914 | 0.988 | 0.017 |
@@ -115,7 +115,7 @@
 | Exp Level | | Mean | Median | Min | Max |
 |-----------|------|---:|---:|---:|---:|
 | None (frozen) | Norm OFF | 0.501 | 0.504 | 0.42 | 0.58 |
-|  | Norm ON | 0.524 | 0.526 | 0.44 | 0.61 |
+|  | Norm ON | 0.513 | 0.512 | 0.45 | 0.59 |
 | Fixed (w=5) | Norm OFF | 0.712 | 0.674 | 0.47 | 1.0 |
 |  | Norm ON | 1.0 | 1.0 | 1.0 | 1.0 |
 | Dynamic [2,6] | Norm OFF | 0.917 | 0.92 | 0.84 | 0.98 |
@@ -142,16 +142,16 @@
 | None (frozen) | -- | -- | -- |
 | None (frozen)+Norm | -- | -- | -- |
 | Fixed (w=5) | 231.6 | 1125.0 | 2079.4 |
-| Fixed (w=5)+Norm | 29.9 | 42.5 | 53.8 |
+| Fixed (w=5)+Norm | 30.3 | 44.5 | 52.3 |
 | Dynamic [2,6] | 76.1 | 230.7 | 467.2 |
-| Dynamic [2,6]+Norm | 25.4 | 37.1 | 43.4 |
+| Dynamic [2,6]+Norm | 25.1 | 34.2 | 43.2 |
 
 ### Mean final majority across N (all trials)
 
 | Condition | N=20 | N=100 | N=500 |
 |-----------|---:|---:|---:|
-| None (frozen) | 0.598 | 0.534 | 0.518 |
-| None (frozen)+Norm | 0.632 | 0.615 | 0.616 |
+| None (frozen) | 0.598 | 0.535 | 0.518 |
+| None (frozen)+Norm | 0.624 | 0.584 | 0.589 |
 | Fixed (w=5) | 1.0 | 0.97 | 0.787 |
 | Fixed (w=5)+Norm | 1.0 | 1.0 | 1.0 |
 | Dynamic [2,6] | 1.0 | 0.993 | 0.957 |
@@ -161,14 +161,14 @@
 
 | Exp Level | N=20 | N=100 | N=500 |
 |-----------|---:|---:|---:|
-| Fixed (w=5) | 7.7x | 26.4x | 38.6x |
-| Dynamic [2,6] | 3.0x | 6.2x | 10.8x |
+| Fixed (w=5) | 7.7x | 25.3x | 39.8x |
+| Dynamic [2,6] | 3.0x | 6.7x | 10.8x |
 
 ---
 ## Key Findings
 
 ### 1. Experiential memory is necessary for convergence
-Without experiential learning (None row), convergence rate is 0/100 at all N, regardless of normative memory. With normative memory on, the final majority reaches ~0.62 (vs ~0.53 without) -- a modest improvement from crystallization, but far below the 0.95 convergence threshold. **Norms can amplify existing patterns but cannot create them from scratch.**
+Without experiential learning (None row), convergence rate is 0/100 at all N, regardless of normative memory. With normative memory on, the final majority reaches ~0.59 (vs ~0.53 without) -- a modest improvement from within-tick transient signals, but far below the 0.95 convergence threshold. **Norms can amplify existing patterns but cannot create them from scratch.**
 
 ### 2. Normative memory dramatically accelerates convergence
 When experiential learning is present, adding normative memory reduces convergence time by 3-39x depending on conditions. The speedup is largest when experiential learning is weakest (Fixed at large N): at N=500, Fixed goes from 24/100 converged at 2079 ticks to 100/100 at 54 ticks (38.7x speedup).

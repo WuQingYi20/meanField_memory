@@ -41,10 +41,10 @@ function fig1_comparison()
         label="Experiential Only", lw=2.5, color=:coral, ls=:dash)
 
     # Mark cascade region
-    vspan!(p, [50, 75], color=:royalblue, alpha=0.08, label="Cascade phase")
+    vspan!(p, [37, 55], color=:royalblue, alpha=0.08, label="Cascade phase")
 
     # Annotations
-    annotate!(p, 62, 0.45, text("Cascade\n(15 ticks)", 9, :royalblue))
+    annotate!(p, 46, 0.45, text("Cascade\n(~18 ticks)", 9, :royalblue))
     annotate!(p, 220, 0.85, text("Slow diffusion\n(~300 ticks)", 9, :coral))
 
     hline!(p, [0.95], color=:gray, ls=:dot, lw=1, label="95% threshold")
@@ -74,16 +74,16 @@ function fig2_cascade_anatomy()
         label="Uncrystallized", lw=2.0, color=:gray, ls=:dash)
 
     # Phase markers
-    vline!(p, [7], color=:black, ls=:dot, lw=0.8, label="")
+    vline!(p, [6], color=:black, ls=:dot, lw=0.8, label="")
     vline!(p, [30], color=:black, ls=:dot, lw=0.8, label="")
+    vline!(p, [37], color=:black, ls=:dot, lw=0.8, label="")
     vline!(p, [55], color=:black, ls=:dot, lw=0.8, label="")
-    vline!(p, [72], color=:black, ls=:dot, lw=0.8, label="")
 
     annotate!(p, 3, 98, text("①", 10, :black))
-    annotate!(p, 18, 98, text("② Symmetric\nCrystallization", 8, :black))
-    annotate!(p, 42, 98, text("③ Tipping", 8, :black))
-    annotate!(p, 63, 98, text("④ Cascade", 8, :darkorange))
-    annotate!(p, 95, 98, text("⑤ Lock-in", 8, :black))
+    annotate!(p, 17, 98, text("② Asymmetric\nCrystallization", 8, :black))
+    annotate!(p, 33, 98, text("③", 8, :black))
+    annotate!(p, 46, 98, text("④ Cascade", 8, :darkorange))
+    annotate!(p, 85, 98, text("⑤ Lock-in", 8, :black))
 
     savefig(p, joinpath(FIGURES, "fig2_cascade_anatomy.png"))
     println("  Saved fig2_cascade_anatomy.png")

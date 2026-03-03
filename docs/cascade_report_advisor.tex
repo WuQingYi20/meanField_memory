@@ -11,9 +11,9 @@
 \usepackage{float}
 \usepackage{natbib}
 
-\title{Dual-Memory Norm Emergence Model:\\
-Ablation Results and Cascade Mechanism Analysis}
-\author{Preliminary Report}
+\title{From Individual Memory to Collective Norms:\\
+How Dual-Memory Cognition Produces Normative Cascades}
+\author{}
 \date{\today}
 
 \begin{document}
@@ -26,19 +26,28 @@ Ablation Results and Cascade Mechanism Analysis}
 \label{sec:intro}
 %% ════════════════════════════════════════════════════════════════
 
-How does a population of anonymous agents, starting from a perfectly symmetric 50-50 behavioural split and no shared history, arrive at a self-enforcing social norm---not merely a behavioural convention, but a shared rule that agents internalise, comply with, and enforce \citep{bicchieri2006grammar}? This report presents ablation and cascade analysis for a dual-memory model that addresses this question. The model equips each agent with two qualitatively distinct memory systems, grounded in separate empirical traditions, and unifies them through a single bridging variable: predictive confidence.
+How does a population of anonymous agents, starting from a perfectly symmetric 50-50 behavioural split and no shared history, arrive at a self-enforcing social norm---not merely a behavioural convention, but a shared rule that agents internalise, comply with, and enforce \citep{bicchieri2006grammar}?
 
-The first mechanism---\emph{experiential memory}---draws on the decisions-from-experience paradigm. \citet{hertwig2010decisions} argued that human decision-makers systematically rely on small, recent samples rather than exhaustive histories; computational models that best predict human behaviour in repeated market-entry games use effective windows of only five to six recent trials \citep{nevo2012bi}. Crucially, this window is not fixed. \citet{behrens2007learning} showed that the human brain continuously tracks environmental volatility and adjusts its learning rate accordingly: in volatile environments where prediction errors are frequent, learning rate increases---mathematically equivalent to shortening the effective memory window---so that recent observations receive greater weight; in stable environments, learning rate decreases, allowing longer integration over past experience. We operationalise this finding through a confidence-adaptive first-in-first-out (FIFO) buffer: predictive confidence~$C$ serves as the agent's estimate of environmental stability (the inverse of perceived volatility), and the effective window length is a monotonically increasing function of~$C$. Successful predictions raise~$C$ and expand the window, stabilising beliefs; prediction failures lower~$C$ and contract it, restoring sensitivity to change. The asymmetric update rule---confidence builds slowly through successful predictions but collapses rapidly after failures---is inspired by \citeauthor{slovic1993perceived}'s (\citeyear{slovic1993perceived}) observation that trust is easier to destroy than to create; we apply the same asymmetry to an agent's confidence in environmental predictability.
+Formal models of convention emergence---most prominently \citet{young1993evolution}---show that bounded-memory learning drives populations toward behavioural regularities. But the resulting conventions are coordination equilibria sustained by best-response incentives: agents conform because conforming pays, not because they hold an internalised prescriptive rule. Cognitive theories of norms \citep{conte1995cognitive} argue that genuine norms require mental representations---internal states that \emph{encode} the rule, distinct from the behavioural tendency to follow it---yet do not specify the micro-level mechanism by which repeated social exposure crystallises into such a representation. The missing piece is a cognitive account of how observing a descriptive regularity becomes holding a prescriptive internal state---the passage from \emph{descriptive} to \emph{social} norm in \citeauthor{bicchieri2006grammar}'s (\citeyear{bicchieri2006grammar}) terms.
 
-The second mechanism---\emph{normative memory}---operationalises norm internalisation as a drift-diffusion process. \citet{germar2014social} demonstrated experimentally that exposure to majority opinion alters the drift rate in perceptual decision-making, shifting subjects' evidence accumulation toward the majority-consistent response. \citet{germar2019learning} further showed that this perceptual shift persists after the social influence is removed, suggesting that repeated exposure to social consensus can produce a lasting cognitive bias. We interpret this persistence as evidence that social influence, under appropriate conditions, can give rise to internalised rules. We model the process as a signed two-boundary drift-diffusion model (DDM) in which observed social consistency accumulates as noisy evidence; when the accumulated evidence crosses a crystallisation threshold, a discrete normative rule forms.
+This paper proposes a dual-memory cognitive architecture in which each agent maintains two qualitatively distinct memory systems---experiential and normative---unified through a single bridging variable: predictive confidence. We show that the interaction between these systems produces a \emph{normative cascade}: a self-amplifying process that drives the population from disorder to consensus in time largely independent of population size (verified across $N = 20$ to $20{,}000$; scaling exponent $\alpha \approx 0.03$). Through systematic ablation, tick-by-tick mechanism tracing, Granger causal analysis, and formal mediation decomposition, we establish that the cascade requires the cooperation of both memory systems.
 
-The key architectural decision---that uncertainty promotes norm uptake while certainty promotes reliance on personal experience---is motivated by the broader principle that organisms increase social learning when individual learning is unreliable. \citet{rendell2010copy}, in their social learning strategies tournament, showed that the most successful strategies were those that copied when uncertain---that is, agents who relied on social information precisely when their own assessment of the environment was poor. This maps directly onto our confidence-gated architecture: the DDM drift rate scales with $(1-C)$, so low-confidence agents---those whose predictions of partner behaviour have been failing---accumulate normative evidence rapidly, while high-confidence agents rely predominantly on their experiential memory.
+The first mechanism---\emph{experiential memory}---draws on the decisions-from-experience paradigm. \citet{hertwig2010decisions} showed that human decision-makers rely on small, recent samples rather than exhaustive histories; computational models that best predict human behaviour in repeated games use effective windows of five to six trials \citep{nevo2012bi}. Crucially, this window is not fixed. \citet{behrens2007learning} demonstrated that the brain continuously tracks environmental volatility and adjusts its learning rate---in volatile environments, learning rate increases (equivalent to shortening the memory window); in stable environments, it decreases. We operationalise these findings as a confidence-adaptive first-in-first-out (FIFO) buffer: predictive confidence~$C$ serves as the agent's estimate of environmental stability (the inverse of perceived volatility), and the effective window length $w$ is a monotonically increasing function of~$C$. Successful predictions raise~$C$ and expand the window; failures lower~$C$ and contract it. The update is asymmetric---confidence builds additively but collapses multiplicatively---so that agents respond quickly to environmental change, consistent with the faster learning rates that \citeauthor{behrens2007learning} observed under high volatility.
 
-A related but distinct intuition comes from the dual-process literature. \citet{rand2014social} showed that under time pressure or cognitive load, people default to socially learned heuristics, while under deliberation they override these defaults. Our model captures an analogous asymmetry at the learning level rather than the execution level: just as cognitive load shifts behaviour toward social defaults in Rand's framework, low predictive confidence shifts an agent's learning dynamics toward faster uptake of social regularities. We do not claim a strict correspondence---Rand's heuristics are pre-existing defaults being retrieved, whereas our agents are forming new normative representations---but the directional logic is the same: uncertainty favours social over individual information.
+The second mechanism---\emph{normative memory}---operationalises norm internalisation as a drift-diffusion process. \citet{germar2014social} demonstrated experimentally that exposure to majority opinion alters the drift rate in perceptual decision-making, shifting evidence accumulation toward the majority-consistent response. \citet{germar2019learning} further showed that this perceptual shift persists after the social influence is removed---evidence that repeated exposure can produce a lasting cognitive change, not merely transient compliance. We model this as a signed two-boundary drift-diffusion model (DDM) in which the agent's experiential belief signal accumulates as confidence-gated evidence; when accumulated evidence crosses a crystallisation threshold, a discrete normative rule forms. This threshold plays a role structurally analogous to \citeauthor{granovetter1978threshold}'s (\citeyear{granovetter1978threshold}) adoption threshold, but operates at the individual cognitive level through internal evidence integration rather than as a population-level response function.
 
-Predictive confidence~$C$ thus serves as the single variable that bridges the two memory systems, determining whether an agent's learning is dominated by socially inferred rules or by individually accumulated experience.
+The key architectural decision---that uncertainty promotes norm uptake while certainty promotes reliance on personal experience---follows from a well-established principle in social learning: organisms increase reliance on social information when individual information is unreliable. \citet{rendell2010copy} showed that ``copy when uncertain'' strategies dominate in competitive tournaments; \citeauthor{boyd1985culture}'s (\citeyear{boyd1985culture}) conformist transmission framework provides a theoretical account of why such strategies are adaptive. In our architecture this principle is implemented through confidence-gating: the DDM drift rate scales with $(1-C)$, so agents whose predictions have been failing accumulate normative evidence rapidly, while confident agents rely on experiential memory.
 
-The remainder of this report is organised as follows. Section~\ref{sec:model} specifies the model. Section~\ref{sec:ablation} presents a systematic ablation isolating each mechanism's contribution. Section~\ref{sec:cascade} traces the \emph{normative cascade}---the positive-feedback process by which minority norms dissolve and the population locks into consensus---through detailed tick-by-tick analysis. The cascade emerges from the interaction of both mechanisms and cannot be produced by either alone. Section~\ref{sec:enforcement} examines how enforcement pressure ($\Phi > 0$) reshapes the phase boundary, creates qualitatively distinct convergence pathways, and exhibits a non-monotonic effect on convergence. Section~\ref{sec:robustness} reports robustness checks.
+Predictive confidence~$C$ thus bridges the two memory systems, governing whether learning is dominated by individually accumulated experience or by socially inferred rules.
+
+This paper makes three main contributions:
+\begin{enumerate}[leftmargin=*,topsep=4pt,itemsep=2pt]
+\item \textbf{Novel cognitive architecture.} We introduce a dual-memory architecture---experiential and normative---grounded in established cognitive mechanisms, that produces norm emergence endogenously from purely local interactions without any global coordination signal.
+\item \textbf{Normative cascade identification.} We identify and characterise a self-amplifying cascade (scaling exponent $\alpha \approx 0.03$), providing causal decomposition via Granger causality tests, early warning signal detection, and formal mediation analysis.
+\item \textbf{Necessity proof via ablation.} We demonstrate that neither memory system alone suffices across population sizes up to $N = 20{,}000$; the normative speedup grows from $3\times$ at $N = 20$ to $76\times$ at $N = 20{,}000$, establishing that the cooperation of both systems is essential.
+\end{enumerate}
+
+The remainder of this paper is organised as follows. Section~\ref{sec:model} specifies the model and frames the theoretical scope of the regularities it can produce. Section~\ref{sec:results} presents a systematic ablation isolating each mechanism's contribution, then traces the \emph{normative cascade}---the positive-feedback process by which minority norms dissolve and the population locks into consensus---through tick-by-tick analysis, Granger causality tests, and early warning signal detection. Section~\ref{sec:boundaries} establishes the cascade's scaling properties across four orders of magnitude in~$N$ and examines how enforcement pressure reshapes the dynamics and where it breaks down. Section~\ref{sec:robustness} reports robustness checks across seeds and strategy symmetry. Section~\ref{sec:discussion} positions the results within the norm-emergence literature and discusses limitations.
 
 %% ════════════════════════════════════════════════════════════════
 \section{Model Description}
@@ -120,16 +129,16 @@ $\xrightarrow[\sigma < \sigma_{\min}]{\text{crisis} \to \text{dissolve}}$
 \end{tabular}
 \end{center}
 
-\paragraph{Pre-crystallisation (DDM).} An evidence accumulator $e$ integrates social observations:
+\paragraph{Pre-crystallisation (DDM).} An evidence accumulator $e$ integrates the experiential belief signal:
 \begin{equation}
-e \leftarrow e + \underbrace{(1 - C) \cdot f_{\mathrm{diff}}}_{\text{confidence-gated drift}} + \underbrace{\mathcal{N}(0, \sigma_{\mathrm{noise}}^2)}_{\text{noise}}
+e \leftarrow e + \underbrace{(1 - C) \cdot f_{\mathrm{diff}}}_{\text{confidence-gated drift}} + \underbrace{s_{\mathrm{push}}}_{\text{enforcement signal}}
 \label{eq:ddm}
 \end{equation}
-where $f_{\mathrm{diff}} = (n_A - n_B)/|O_i|$ measures the signed consistency of the observation set $O_i(t)$. When $|e| \geq \theta_{\mathrm{crystal}}$, the agent \emph{crystallises} a norm: $r = A$ if $e > 0$, $r = B$ if $e < 0$. The norm strength is initialised to $\sigma_0$.
+where $f_{\mathrm{diff}} = b_{\exp}^A - b_{\exp}^B$ is the signed difference in the agent's experiential belief (DD-11). The DDM uses the FIFO-smoothed belief rather than raw single-tick observations; this provides first-level temporal smoothing, while the accumulator provides second-level integration. No additive Gaussian noise is included (DD-12): sampling noise is already captured by $b_{\exp}$'s finite-window variance; adding $\sigma_{\mathrm{noise}}$ on top would double-count uncertainty and re-introduce noise-driven crystallisation at 50-50. When $|e| \geq \theta_{\mathrm{crystal}}$, the agent \emph{crystallises} a norm: $r = A$ if $e > 0$, $r = B$ if $e < 0$. The norm strength is initialised to $\sigma_0$.
 
 Key property: the drift is gated by $(1 - C)$. Low-confidence agents (uncertain about the environment) accumulate evidence faster and crystallise sooner.
 
-At a symmetric 50-50 population ($f_{\mathrm{diff}} = 0$), the accumulator performs a pure random walk. The expected crystallisation time is $\theta_{\mathrm{crystal}}^2 / \sigma_{\mathrm{noise}}^2$. When the population is asymmetric (e.g., 70\% $A$), there is a positive drift and crystallisation occurs rapidly, predominantly toward the majority direction.
+At a symmetric 50-50 population ($f_{\mathrm{diff}} \approx 0$ because $b_{\exp} \approx (0.5, 0.5)$), the drift is near zero and \emph{crystallisation does not occur}. The accumulator oscillates around zero, waiting for $b_{\exp}$ to drift away from 0.5 through experiential learning. When the population is asymmetric (e.g., 70\% $A$), $b_{\exp}$ shifts toward $A$, producing a positive drift that drives crystallisation predominantly toward the majority direction.
 
 \paragraph{Post-crystallisation (norm maintenance).} Once crystallised, the agent monitors conformity and violations among its observations:
 \begin{itemize}[nosep]
@@ -164,20 +173,23 @@ Symbol & Meaning & Default & Source \\
 \midrule
 \multicolumn{4}{@{}l}{\emph{Experiential layer}} \\
 $N$ & Population size & 100 & --- \\
-$\alpha$ & Confidence increase rate & 0.1 & Slovic 1993 \\
-$\beta$ & Confidence decrease rate & 0.3 & Slovic 1993 \\
+$\alpha$ & Confidence increase rate & 0.1 & calibration \\
+$\beta$ & Confidence decrease rate & 0.3 & calibration \\
 $C_0$ & Initial confidence & 0.5 & --- \\
 $w_{\mathrm{base}}, w_{\max}$ & Memory window range & 2, 6 & Hertwig 2010 \\
 \addlinespace
 \multicolumn{4}{@{}l}{\emph{Normative layer}} \\
-$\sigma_{\mathrm{noise}}$ & DDM noise & 0.1 & Germar 2014 \\
 $\theta_{\mathrm{crystal}}$ & Crystallisation threshold & 3.0 & calibration \\
 $\sigma_0$ & Initial norm strength & 0.8 & calibration \\
 $\theta_{\mathrm{crisis}}$ & Crisis threshold (anomaly count) & 10 & calibration \\
 $\lambda_{\mathrm{crisis}}$ & Crisis decay factor & 0.3 & calibration \\
 $\sigma_{\min}$ & Dissolution threshold & 0.1 & calibration \\
-$\alpha_\sigma$ & Strengthening rate & 0.005 & Will 2023 \\
+$\alpha_\sigma$ & Strengthening rate & 0.005 & calibration \\
 $k$ & Compliance exponent & 2.0 & calibration \\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Enforcement}} \\
+$\theta_{\mathrm{enforce}}$ & Enforcement strength threshold & 0.7 & calibration \\
+$\gamma_{\mathrm{signal}}$ & Signal amplification & 2.0 & calibration \\
 \addlinespace
 \multicolumn{4}{@{}l}{\emph{Environment}} \\
 $V$ & Additional observations/tick & 0 & --- \\
@@ -190,8 +202,16 @@ $\Phi$ & Enforcement gain & 0.0 & disabled \\
 
 All agents start identical: $b_{\exp} = (0.5, 0.5)$, $C = C_0$, $r = \text{none}$, $\sigma = 0$, $e = 0$. The population is perfectly symmetric with respect to $A$ and $B$.
 
+\subsection{What kind of norm can this architecture produce?}
+\label{sec:norm_status}
+
+Before turning to results, it is worth framing the theoretical scope of the model.  \citeauthor{bicchieri2006grammar}'s (\citeyear{bicchieri2006grammar}) taxonomy distinguishes a behavioural convention---a regularity sustained by mutual best-response \citep{lewis1969convention}---from a social norm, which additionally requires \emph{normative expectations} (beliefs about what others think one \emph{ought} to do) and conditional compliance.  The architecture above can produce regularities that go beyond a Lewis convention in four respects: (i)~the crystallised state $(r, \sigma)$ is an explicit internal representation distinct from the experiential belief~$b_{\exp}$; (ii)~crystallised agents enforce; (iii)~norms are robust to transient perturbations in $b_{\exp}$ (decay requires the anomaly--crisis pathway); (iv)~dissolution and recrystallisation create an irreversible population-level ratchet despite individual-level reversibility.
+
+Two features, however, fall short of Bicchieri's full definition: agents hold no second-order beliefs and compliance is not conditional on normative expectations.  The emergent regularity thus occupies a middle ground---more than a convention, less than a full social norm.  We refer to it as the \emph{functional substrate} of normativity: the minimal cognitive infrastructure from which genuine social norms could emerge if second-order beliefs and conditional compliance were added.  Crucially, neither addition would disable the cascade mechanism (which operates through anomaly accumulation, not metacognition), so the results below characterise a robust micro--macro bridge that should survive enrichment of the cognitive model.
+
 %% ════════════════════════════════════════════════════════════════
-\section{Ablation Experiment}
+\section{Results: Ablation and Cascade Mechanism}
+\label{sec:results}
 \label{sec:ablation}
 %% ════════════════════════════════════════════════════════════════
 
@@ -211,7 +231,7 @@ To isolate each memory system's contribution, we ran a $3 \times 2$ factorial:
 
 Crossed with three population sizes $N \in \{20, 100, 500\}$. Each cell was run for 100 independent trials ($T = 3000$ ticks max).
 
-\paragraph{Convergence criterion.} Behavioural majority $\geq 0.95$ sustained for 50 consecutive ticks.
+\paragraph{Convergence criterion.} The full model defines convergence as three layers simultaneously met for 50 consecutive ticks: (i)~behavioural majority $\geq 0.95$; (ii)~belief error $< 0.10$ and belief variance $< 0.05$; (iii)~fraction crystallised $\geq 0.80$ and fraction holding dominant norm $\geq 0.90$. The \emph{convergence tick} reported throughout is the first tick at which this sustained criterion begins (i.e.\ the start of the 50-tick window). For ablation conditions where normative memory is OFF, only the behavioural layer is applicable; we therefore report convergence based on the behavioural majority $\geq 0.95$ criterion sustained for 50 ticks.
 
 \subsection{Results}
 
@@ -229,10 +249,10 @@ None    & OFF & 0/100  & ---   && 0/100  & ---    && 0/100  & ---    \\
 None    & ON  & 0/100  & ---   && 0/100  & ---    && 0/100  & ---    \\
 \addlinespace
 Fixed   & OFF & 100 & 232  && 91 & 1125   && 24 & 2079   \\
-Fixed   & ON  & 100 & 30   && 100 & 42    && 100 & 54    \\
+Fixed   & ON  & 100 & 30   && 100 & 45    && 100 & 52    \\
 \addlinespace
 Dynamic & OFF & 100 & 76   && 100 & 231   && 100 & 467   \\
-Dynamic & ON  & 100 & 25   && 100 & 37    && 100 & 43    \\
+Dynamic & ON  & 100 & 25   && 100 & 34    && 100 & 43    \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -245,8 +265,8 @@ Dynamic & ON  & 100 & 25   && 100 & 37    && 100 & 43    \\
 \toprule
 Exp.\ Level & Norm & $N=20$ & $N=100$ & $N=500$ \\
 \midrule
-None  & OFF & 0.598 & 0.534 & 0.518 \\
-None  & ON  & 0.632 & 0.615 & 0.616 \\
+None  & OFF & 0.598 & 0.535 & 0.518 \\
+None  & ON  & 0.624 & 0.584 & 0.589 \\
 Fixed & OFF & 1.000 & 0.970 & 0.787 \\
 Fixed & ON  & 1.000 & 1.000 & 1.000 \\
 Dynamic & OFF & 1.000 & 0.993 & 0.957 \\
@@ -263,70 +283,64 @@ Dynamic & ON  & 1.000 & 1.000 & 1.000 \\
 \toprule
 Exp.\ Level & $N = 20$ & $N = 100$ & $N = 500$ \\
 \midrule
-Fixed ($w{=}5$) & $7.7\times$ & $26.5\times$ & $38.7\times$ \\
-Dynamic $[2,6]$ & $3.0\times$ & $6.2\times$ & $10.8\times$ \\
+Fixed ($w{=}5$) & $7.7\times$ & $25.0\times$ & $40.0\times$ \\
+Dynamic $[2,6]$ & $3.0\times$ & $6.8\times$ & $10.9\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Observations}
 
-\begin{enumerate}
-\item \textbf{Experiential memory is necessary.} Without it (None rows), convergence is 0/100 at all $N$, regardless of normative memory. Adding norms to frozen beliefs raises final majority from $\sim$0.53 to $\sim$0.62 (Table~\ref{tab:majority})---a modest improvement from crystallisation, but far below the 0.95 threshold. Normative memory cannot create a pattern from noise alone.
+Three patterns stand out from Tables~\ref{tab:ablation}--\ref{tab:speedup}.
 
-The mechanism is symmetric cancellation. With $b_{\exp}$ frozen at $0.5$, actions are coin flips, so the DDM performs a pure random walk and crystallises roughly equal numbers of $A$- and $B$-norms (${\sim}50$ vs.\ ${\sim}50$). An $A$-norm agent acts $A$ with $b_{\mathrm{eff}}^A = 0.82$; a $B$-norm agent acts $A$ with $b_{\mathrm{eff}}^A = 0.18$. These biases cancel at the population level: $\mathrm{fraction}_A \approx 0.50 \cdot 0.82 + 0.50 \cdot 0.18 = 0.50$. The resulting violation-rate gap between sides is negligible (${\sim}51\%$ vs.\ ${\sim}49\%$), so both norms reach crisis and dissolve at nearly the same rate---the one-way ratchet that drives the cascade in the full model (Section~\ref{sec:loop}) is effectively disabled. The modest improvement to $0.62$ arises from weak statistical drift accumulated over many crystallise--dissolve--recrystallise cycles, but this drift can never self-amplify to $0.95$ because $b_{\exp}$ is pinned at $0.5$ and the positive-feedback loop through experiential memory is broken.
+\begin{enumerate}[nosep]
+\item \textbf{Experiential memory is necessary; normative memory is not sufficient.} Without experiential learning (None rows), $b_{\exp}$ is pinned at $0.5$, so $f_{\mathrm{diff}} = 0$ and the DDM evidence accumulator never reaches threshold---crystallisation cannot occur.\footnote{The modest majority increase from $\sim$0.53 (None+OFF) to $\sim$0.59 (None+ON) arises from within-tick transient signals: Stage~2 computes $b_{\exp}$ before the post-tick reset, giving the DDM a brief non-zero drift that enables some symmetric crystallisation, which cannot drive convergence.}
 
-\item \textbf{Experiential learning alone scales poorly.} Fixed-window convergence degrades from 100\% ($N{=}20$) to 24\% ($N{=}500$), and the mean tick grows roughly linearly with $N$. Dynamic window helps (100\% at all $N$), but the tick still grows from 76 to 467.
+\item \textbf{Experiential learning alone scales poorly; adding norms changes the scaling class.} Without norms, convergence tick grows roughly linearly with~$N$ and Fixed-window convergence degrades to 24\% at $N{=}500$. With norms, convergence is 100\% everywhere and the tick barely increases (25→43 over a 25-fold $N$ range). The growing speedup ratio (Table~\ref{tab:speedup}) is not a constant factor---it signals a qualitative mechanism change, analysed further at large~$N$ in Section~\ref{sec:scaling}.
 
-\item \textbf{With both systems, convergence is fast, complete, and $N$-robust.} The mean tick only grows from 25 to 43 as $N$ increases 25-fold (Table~\ref{tab:ablation}). Convergence rate is 100\% everywhere. Final majority is always 1.0.
-
-\item \textbf{The speedup grows with $N$} (Table~\ref{tab:speedup}). This is not a constant-factor improvement---it suggests a qualitative change in the convergence mechanism.
-
-\item \textbf{Normative memory compensates for weak experiential learning.} Fixed+Norm and Dynamic+Norm converge at nearly identical speeds ($\sim$10 ticks apart at all $N$). Once the normative cascade fires, the quality of the experiential estimator barely matters.
+\item \textbf{Normative memory compensates for weak experiential learning.} Fixed+Norm and Dynamic+Norm converge at nearly identical speeds. Once the cascade fires, the quality of the experiential estimator barely matters.
 \end{enumerate}
 
-%% ════════════════════════════════════════════════════════════════
-\section{Deep Analysis: The Normative Cascade}
+\subsection{The normative cascade: tick-by-tick mechanism}
 \label{sec:cascade}
-%% ════════════════════════════════════════════════════════════════
 
-The ablation shows \emph{what} each system contributes. This section traces \emph{how}: we tracked every agent's internal state tick by tick in a single diagnostic trial ($N = 100$, Dynamic+Norm, seed = 42).
+The ablation shows \emph{what} each system contributes; we now trace \emph{how}. Every agent's internal state was tracked tick by tick in a single diagnostic trial ($N = 100$, Dynamic+Norm, seed = 42).
 
-\subsection{Five phases of norm emergence}
+\subsubsection{Five phases of norm emergence}
 
-Figure~\ref{fig:anatomy} shows the number of agents in each crystallisation state over time.
+Figure~\ref{fig:anatomy} provides a comprehensive view of the cascade mechanism across four panels: (a)~agent group dynamics, (b)~signal amplification from experiential to effective belief, (c)~early warning signals via belief variance, and (d)~enforcement capacity as measured by the number of agents with $\sigma > \theta_{\mathrm{enforce}} = 0.7$.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.65\textheight,angle=90,keepaspectratio]{figures/fig2_cascade_anatomy.png}
-    \caption{Agent group dynamics: crystallised-$A$ (blue), crystallised-$B$ (red), uncrystallised (grey dashed). Vertical dotted lines mark phase boundaries.}
+    \includegraphics[width=0.95\textwidth]{figures/fig_cascade_comprehensive.png}
+    \caption{Comprehensive cascade anatomy ($N=100$, seed\,=\,42). \textbf{(a)}~Agent group counts; vertical dotted lines mark phase boundaries. \textbf{(b)}~Signal amplification: $b_{\exp}$ (green dashed) tracks the field, while $b_{\mathrm{eff}}$ for $A$-norm agents (blue) is pushed toward 1.0 and for $B$-norm agents (red) toward 0. \textbf{(c)}~Early warning: cross-agent belief variance (orange) and action volatility (purple) rise before the cascade, then collapse. \textbf{(d)}~Enforcement capacity: agents with $\sigma > 0.7$ (solid fills) versus total crystallised (dotted); $A$-norm enforcers accumulate while $B$-norm enforcers vanish.}
     \label{fig:anatomy}
 \end{figure}
 
 \begin{enumerate}[nosep]
-\item \textbf{Symmetric random} (tick 1--7). All agents uncrystallised. Actions are coin flips based on $b_{\exp} \approx 0.5$.
+\item \textbf{Symmetric random} (tick 1--6). All agents uncrystallised. Actions are coin flips based on $b_{\exp} \approx 0.5$. DDM evidence $e$ remains near zero because $f_{\mathrm{diff}} = b_{\exp}^A - b_{\exp}^B \approx 0$.
 
-\item \textbf{Symmetric crystallisation} (tick 7--30). DDM random walks cross $\pm\theta_{\mathrm{crystal}}$. Agents crystallise roughly evenly: 39\,$A$ vs.\ 38\,$B$ at tick 30. Both sides begin accumulating anomalies from each other. $b_{\exp}$ has barely moved from 0.5.
+\item \textbf{Experiential drift and asymmetric crystallisation} (tick 6--30). Stochastic fluctuations in random pairing cause $b_{\exp}$ to drift from 0.5 for individual agents. As $b_{\exp}$ shifts, $f_{\mathrm{diff}}$ becomes non-zero and DDM evidence begins accumulating. Agents whose $b_{\exp}$ drifts furthest---and whose confidence $C$ is lowest---crystallise first. Because crystallisation requires a \emph{sustained} directional signal from $b_{\exp}$ (not noise), the earliest crystallisers are biased toward the emerging stochastic majority. By tick 30, the split is already asymmetric: 38\,$A$ vs.\ 23\,$B$, with 39 agents still uncrystallised. This built-in asymmetry---absent in a noise-driven model---means the cascade starts from a stronger directional signal.
 
-\item \textbf{Tipping} (tick 30--55). Experiential memory slowly shifts $b_{\exp}$ from 0.50 to $\sim$0.58. The slight $A$-majority means $B$-norms face more violations than $A$-norms. $B$-norms begin dissolving; $A$-norms hold.
+\item \textbf{Tipping} (tick 30--37). Crystallised agents' behavioural commitment (via $b_{\mathrm{eff}}$, Eq.~\ref{eq:beff}) amplifies the majority signal in the environment. Experiential memory shifts $b_{\exp}$ rapidly toward $A$. First $B$-norm dissolutions appear at tick 37 as $B$-norms accumulate anomalies faster than $A$-norms.
 
-\item \textbf{Cascade} (tick 55--72). The $B$-norm count collapses from 27 to 0 in $\sim$15 ticks. Each dissolution feeds the next (see Section~\ref{sec:loop}).
+\item \textbf{Cascade} (tick 37--55). The $B$-norm count collapses from 23 to 0 in $\sim$18 ticks. Each dissolution feeds the next (see Section~\ref{sec:loop}). By tick 55, all remaining agents are $A$-crystallised.
 
-\item \textbf{Lock-in} (tick 72+). All agents are $A$-crystallised. Norm strength recovers, confidence rises to 1.0, $b_{\exp} \to 1.0$.
+\item \textbf{Lock-in} (tick 55+). All agents are $A$-crystallised. Norm strength recovers, confidence rises to 1.0, $b_{\exp} \to 1.0$.
 \end{enumerate}
 
-\subsection{Both vs.\ Experiential-only: same seed}
+\subsubsection{Both vs.\ Experiential-only: same seed}
 
-Figure~\ref{fig:comparison} overlays the same seed under both conditions. The trajectories are virtually identical until tick 50; the divergence corresponds exactly to the cascade phase.
+Figure~\ref{fig:comparison} overlays the same seed under both conditions. The trajectories are virtually identical during the symmetry-breaking and tipping phases (ticks 0--37); the divergence begins once the normative cascade fires and widens rapidly through the cascade phase (ticks 37--55).
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{figures/fig1_both_vs_exponly.png}
-    \caption{Fraction playing $A$: Dual Memory (solid blue) vs.\ Experiential Only (dashed orange), same seed. Shaded region marks the cascade.}
+    \caption{Fraction playing $A$: Dual-Memory (solid blue) vs.\ Experiential-Only (dashed orange), same seed. Shaded region marks the cascade.}
     \label{fig:comparison}
 \end{figure}
 
-\subsection{Signal amplification}
+\subsubsection{Signal amplification}
 
 Figure~\ref{fig:amplifier} reveals the mechanism behind the divergence. $A$-norm agents act $A$ with $\sim$85\% probability even when $b_{\exp} \approx 0.55$---the blending equation (Eq.~\ref{eq:beff}) converts a weak field signal into strong behavioural commitment. $B$-norm agents act $A$ with only $\sim$12\%. This bimodal output drives the population fraction far more aggressively than $b_{\exp}$ alone could.
 
@@ -337,51 +351,52 @@ Figure~\ref{fig:amplifier} reveals the mechanism behind the divergence. $A$-norm
     \label{fig:amplifier}
 \end{figure}
 
-\subsection{The feedback mechanism}
+\subsubsection{The feedback mechanism}
 
 Figure~\ref{fig:feedback} traces four coupled variables through the cascade:
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{figures/fig3_feedback_loop.png}
-    \caption{(a)~Norm strength $\sigma$: $B$-norms decay faster. (b)~Anomaly counts: $B$-norms approach the crisis threshold while $A$-norms decline. (c)~$b_{\exp}$ tracks the field; $b_{\mathrm{eff}}$ leads it. (d)~Dissolution events (red) and new $A$-crystallisations (blue) cluster in tick 40--70.}
+    \caption{(a)~Norm strength $\sigma$: $B$-norms decay faster. (b)~Anomaly counts: $B$-norms approach the crisis threshold while $A$-norms decline. (c)~$b_{\exp}$ tracks the field; $b_{\mathrm{eff}}$ leads it. (d)~Dissolution events (red) and new $A$-crystallisations (blue) cluster in tick 37--55.}
     \label{fig:feedback}
 \end{figure}
 
-\subsection{The one-way ratchet}
+\subsubsection{The one-way ratchet}
+\label{sec:ratchet}
 
 We tracked every norm-state transition for all 100 agents. Among agents that crystallised to $B$, dissolved, and subsequently re-crystallised:
 \begin{itemize}[nosep]
-\item 44 agents followed $B \to \text{dissolved} \to A$.
+\item 20 agents followed $B \to \text{dissolved} \to A$.
 \item \textbf{0 agents} followed $B \to \text{dissolved} \to B$.
 \end{itemize}
 
-Figure~\ref{fig:lifecycle} visualises these lifecycles. The mean uncrystallised interval is 11.2 ticks---once dissolved, the agent sees a strongly $A$-biased environment and crystallises to $A$ rapidly.
+Figure~\ref{fig:lifecycle} visualises these lifecycles. The mean uncrystallised interval is 11.6 ticks (median 10.0)---once dissolved, the agent sees a strongly $A$-biased environment and crystallises to $A$ rapidly. Note that only 20 agents (not all 23 initial $B$-norm holders) required this pathway; the remaining 3 $B$-norm agents dissolved but had not yet re-crystallised by the time the cascade completed, as they remained in the uncrystallised pool.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{figures/fig5_agent_lifecycle.png}
-    \caption{Lifecycle of 44 agents that transitioned $B \to \text{dissolved} \to A$. Red = $B$-crystallised, grey = uncrystallised, blue = $A$-crystallised. Black dots mark dissolution.}
+    \caption{Lifecycle of 20 agents that transitioned $B \to \text{dissolved} \to A$. Red = $B$-crystallised, grey = uncrystallised, blue = $A$-crystallised. Black dots mark dissolution.}
     \label{fig:lifecycle}
 \end{figure}
 
-\subsection{The dual feedback loop}
+\subsubsection{The dual feedback loop}
 \label{sec:loop}
 
 The cascade arises from two interlocking positive-feedback loops.
 
-\paragraph{Loop 1: Differential erosion (slow, tick 30--55).} When $n_A > n_B$ among crystallised agents, a $B$-norm agent's partner is more likely to play $A$ (a norm violation). Therefore $B$-norms accumulate anomalies faster, reach crisis sooner, and experience more $\sigma$-decay. As $B$-agents' compliance drops (Eq.~\ref{eq:beff}), they act less distinctly $B$, which makes the environment even more $A$-biased:
+\paragraph{Loop 1: Differential erosion (slow, tick 30--37).} When $n_A > n_B$ among crystallised agents, a $B$-norm agent's partner is more likely to play $A$ (a norm violation). Therefore $B$-norms accumulate anomalies faster, reach crisis sooner, and experience more $\sigma$-decay. As $B$-agents' compliance drops (Eq.~\ref{eq:beff}), they act less distinctly $B$, which makes the environment even more $A$-biased:
 \begin{equation}
 n_A > n_B \;\Longrightarrow\; \text{anomaly rate}(B) > \text{anomaly rate}(A) \;\Longrightarrow\; \sigma_B \downarrow\; \;\Longrightarrow\; \text{environment more } A\text{-biased}
 \end{equation}
 
-\paragraph{Loop 2: Dissolution cascade (fast, tick 55--72).} When $\sigma_B$ falls below $\sigma_{\min}$, the agent dissolves and re-enters the DDM. The DDM drift $(1 - C) \cdot f_{\mathrm{diff}}$ is now strongly positive (the environment is majority-$A$), so the agent re-crystallises to $A$ within $\sim$10 ticks. Each $B \to A$ conversion increases $n_A$, accelerating both loops:
+\paragraph{Loop 2: Dissolution cascade (fast, tick 37--55).} When $\sigma_B$ falls below $\sigma_{\min}$, the agent dissolves and re-enters the DDM. In the now strongly $A$-biased environment, the one-way ratchet (Section~\ref{sec:ratchet}) ensures recrystallisation to~$A$ within ${\sim}10$ ticks. Each conversion increases $n_A$, accelerating both loops:
 \begin{equation}
 \frac{d\, n_B}{dt} \;\propto\; -\,n_B \;\cdot\; p_A(n_B), \qquad \frac{\partial\, p_A}{\partial\, n_B} < 0
 \end{equation}
 (This is a qualitative continuous approximation; the actual dynamics proceed through discrete crisis events---anomaly accumulation to $\theta_{\mathrm{crisis}}$, multiplicative $\sigma$-decay, and dissolution when $\sigma < \sigma_{\min}$.)
 
-\noindent The result is \emph{exponential acceleration}: each dissolution makes the next faster (Figure~\ref{fig:causal}d).
+\noindent The result is \emph{exponential acceleration}: each dissolution makes the next faster (Figure~\ref{fig:causal}d). This is the structural reason why the cascade completes in time independent of~$N$: unlike experiential-only convergence---where each agent independently drifts at rate $\sim 1/w$, giving $O(N)$ scaling---the anomaly--crisis--dissolution pathway operates locally at every minority-norm agent simultaneously, so the cascade time depends on the crisis parameters, not on population size. The speedup ratio in Table~\ref{tab:speedup} grows with~$N$ for exactly this reason.
 
 \begin{figure}[H]
     \centering
@@ -390,29 +405,155 @@ n_A > n_B \;\Longrightarrow\; \text{anomaly rate}(B) > \text{anomaly rate}(A) \;
     \label{fig:causal}
 \end{figure}
 
-\paragraph{Why this is a phase transition, not diffusion.}
-\begin{itemize}[nosep]
-\item \textbf{Diffusion} (experiential only): each agent independently drifts toward the majority at rate $\sim 1/w$. Convergence time scales as $O(N)$ because the signal must propagate one-hop-at-a-time through random pairings.
-\item \textbf{Phase transition} (with norms): once a critical asymmetry is reached ($\sim$55--60\% crystallised to one side), the cascade is self-sustaining and completes in a time determined by the anomaly-to-crisis-to-dissolution pathway---\emph{not} by $N$.
-\end{itemize}
+\noindent Section~\ref{sec:scaling} confirms this parallelism quantitatively: dissolution counts scale as $O(N)$ while cascade completion time remains effectively $O(1)$ across a 200-fold range in population size.
 
-This structural difference explains the scaling results in Table~\ref{tab:speedup}: the experiential convergence time grows linearly with $N$, while the cascade time remains approximately constant, so the speedup ratio increases with $N$.
+\subsection{Temporal causal verification}
+\label{sec:granger}
+
+The dual feedback loop described above (Section~\ref{sec:loop}) posits a specific temporal causal order: anomaly accumulation drives dissolution, which shifts the belief field, which accelerates further anomaly accumulation. We verify this order using Granger causality tests on the tick-level population time series from the same diagnostic trial (seed~$= 42$, $N = 100$, $T = 300$; the dynamics in the first 200 ticks are identical to the run described above, with additional post-lock-in observations).
+
+Granger causality tests whether past values of variable~$X$ improve prediction of~$Y$ beyond~$Y$'s own history---a necessary (though not sufficient) condition for $X \to Y$ causation \citep{granger1969investigating}. We fit vector autoregressive models at lags~1--3 and test the null of zero coefficients on the $X$-lags via an $F$-test; Table~\ref{tab:granger} reports lag-1 results for cross-pair comparability (results at AIC-optimal lags---which range from 1 to 4 across pairs---are qualitatively identical). Because the cascade is a phase transition, several series are non-stationary; augmented Dickey--Fuller tests failed to reject the unit-root null at the 5\% level for $\bar{C}$, $\bar{b}_{\mathrm{eff}}$, and $\bar{\sigma}$ (norm strength). These three series were first-differenced before testing; the remaining series (anomaly count, belief shift) are stationary in levels.
+
+\begin{table}[H]
+\centering
+\caption{Granger causality $F$-tests (lag~1). Non-stationary series ($\bar{C}$, $\bar{b}_{\mathrm{eff}}^A$, $\bar{\sigma}$) first-differenced; stationary series (anomaly, belief shift) in levels.}
+\label{tab:granger}
+\begin{tabular}{@{}llrrl@{}}
+\toprule
+Cause & Effect & $F$ & $p$ & Interpretation \\
+\midrule
+anomaly & $\Delta\bar{\sigma}$ (dissolution proxy) & 138.1 & ${<}\,0.001$ & Anomaly drives dissolution \\
+$\Delta\bar{\sigma}$ & $\Delta\bar{b}_{\mathrm{eff}}^A$ & 10.9 & 0.001 & Norm strength feeds back to belief \\
+belief shift & anomaly & 4.7 & 0.030 & Belief shift accelerates anomaly \\
+$\Delta\bar{C}$ & $\Delta\bar{\sigma}$ & 0.0 & 1.000 & Confidence does \emph{not} drive $\sigma$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three findings merit attention:
+\begin{enumerate}[nosep]
+\item \textbf{The anomaly $\to$ dissolution link is extremely strong} ($F = 138.1$). This confirms that the crisis--dissolution pathway (anomaly count reaching $\theta_{\mathrm{crisis}}$, triggering $\sigma$-decay and eventual dissolution) is the primary driver of the cascade, not a gradual weakening of norm strength through other channels.
+
+\item \textbf{The $\sigma \to b_{\mathrm{eff}}^A$ feedback loop is confirmed} ($F = 10.9$, $p = 0.001$). Changes in norm strength Granger-cause changes in the population's effective belief---precisely the amplification mechanism described in Section~\ref{sec:loop}: as minority norms weaken, their holders' $b_{\mathrm{eff}}^A$ shifts toward the majority, further biasing the environment.
+
+\item \textbf{Confidence does not drive norm strength} ($F \approx 0$, $p = 1.0$). Although confidence~$C$ gates the DDM drift and modulates compliance, changes in confidence have no temporal predictive power over norm strength dynamics. The cascade operates through the anomaly--crisis--dissolution pathway, not through confidence-mediated gradual erosion. This does not mean confidence is unimportant---it shapes \emph{which} agents crystallise first (Section~\ref{sec:norm})---but once norms exist, their fate is determined by the anomaly dynamics, not by confidence trajectories.
+\end{enumerate}
+
+\paragraph{Scale invariance of causal structure.} To verify that these causal relationships are not artefacts of small-$N$ dynamics, we repeated the Granger tests at $N \in \{1{,}000,\; 5{,}000,\; 10{,}000,\; 20{,}000\}$ using independent diagnostic trials (seed $= 42$). The anomaly~$\to$~$\sigma$ link remains significant at lag~2 across all $N$ tested ($F = 3.7$--$10.0$, $p < 0.05$), confirming that the causal chain identified at $N = 100$ is a genuine scale-invariant property of the cascade mechanism, not a small-$N$ sampling artifact.
+
+\subsection{Early warning signals}
+
+\label{sec:ews}
+
+Self-amplifying cascades in complex systems are often preceded by \emph{early warning signals}---statistical signatures that appear before the transition itself \citep{scheffer2009early}. A common precursor is increasing variance: as the system approaches a tipping point, fluctuations grow because the restoring forces are weakening \citep{dakos2012methods}.
+
+We applied CUSUM (Cumulative Sum) changepoint detection \citep{page1954continuous} to the same tick-level time series. The detector maintains two running sums---one for upward shifts, one for downward---updating at each tick as $S^+_t = \max(0,\, S^+_{t-1} + z_t - k)$, where $z_t = (y_t - \hat\mu)/\hat\sigma$ is normalised against a baseline estimated from the first 20~ticks, and $k = 0.5$ is a slack parameter. A changepoint is declared when $S^+_t$ (or $S^-_t$) exceeds the decision threshold $h = 4.0$. Three changepoints were detected:
+
+\begin{table}[H]
+\centering
+\caption{CUSUM changepoints in the diagnostic trial.}
+\label{tab:changepoints}
+\begin{tabular}{@{}llr@{}}
+\toprule
+Series & Event & Tick \\
+\midrule
+Mean belief ($\bar{b}_{\mathrm{eff}}^A$) & Belief shift onset & 67 \\
+Mean norm strength ($\bar{\sigma}$) & Norm strength collapse & 84 \\
+Crystallised agent count & Crystallisation cascade & 86 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The temporal ordering is significant: the belief shift precedes the crystallisation cascade by \textbf{19~ticks}. This lead time constitutes an early warning window---the population's experiential beliefs are already shifting toward the majority direction well before the normative cascade becomes visible in crystallisation counts.
+
+Note that the CUSUM-detected ticks (67, 84, 86) are later than the visually identified phase boundaries in Section~\ref{sec:cascade} (cascade at tick~37--55). This is expected: CUSUM is a \emph{cumulative} detector that declares a changepoint only after sufficient statistical evidence has accumulated against the baseline, introducing a detection lag. The underlying dynamics are identical (same seed), but the CUSUM alarm fires after the deviation has been sustained long enough to exceed the decision threshold $h$. The relevant finding is not the absolute tick numbers but the \emph{relative ordering}---belief shift is detected before crystallisation count change---and the 19-tick lead time between the two CUSUM alarms.
+
+To test for increasing pre-cascade variance, we computed the rolling variance (window $= 20$~ticks) of $\bar{b}_{\mathrm{eff}}^A$ in the pre-changepoint period (ticks~1--67). The Pearson correlation between rolling variance and time is $r = 0.877$---a strongly increasing trend. As the system approaches the cascade tipping point, belief fluctuations grow in amplitude because the stabilising forces (symmetric population composition) are weakening. The pattern is consistent with the early warning signatures described by \citet{scheffer2009early} for tipping points in complex systems, though we note that our discrete-agent system does not satisfy the formal dynamical-systems prerequisites (smooth potential landscape, slow--fast variable separation) of the critical slowing down framework; the analogy is statistical rather than structural.
+
+The 19-tick early warning window suggests that, in principle, an observer monitoring belief variance could anticipate the cascade before it occurs---a prediction that could be tested experimentally in human-subject coordination games.
 
 %% ════════════════════════════════════════════════════════════════
-\section{Enforcement Pressure and the Phase Boundary}
+\section{Scaling, Enforcement, and Boundary Conditions}
+\label{sec:boundaries}
 \label{sec:enforcement}
 %% ════════════════════════════════════════════════════════════════
 
-The preceding analysis established the normative cascade mechanism at $\Phi = 0$ (no enforcement). We now ask three questions about enforcement pressure:
-\begin{enumerate}[nosep]
-\item Does $\Phi$ shift the phase transition boundary? (known at $\theta \approx 7$ for $\Phi = 0$)
-\item Does $\Phi$ create qualitatively different convergence pathways?
-\item Is the effect of $\Phi$ monotonic, or does an optimal enforcement level exist?
-\end{enumerate}
+The cascade identified in Section~\ref{sec:results} operates at $N{=}100$ with default parameters. This section asks: over what range of conditions does it hold? We first establish the scaling properties across population sizes spanning four orders of magnitude, then examine how enforcement pressure ($\Phi > 0$) reshapes the cascade dynamics and where it breaks down.
 
-\subsection{Method}
+\subsection{Population-size invariance}
+\label{sec:scaling}
 
-All experiments use the full-model configuration ($w_{\mathrm{base}} = 2$, $w_{\max} = 6$, $V = 0$, normative enabled) with default crystallisation parameters ($\sigma_0 = 0.8$, $k = 2$, $\theta_{\mathrm{crisis}} = 10$). Only $\theta_{\mathrm{crystal}}$ and $\Phi$ are varied. Each condition was run for 30 independent trials ($T = 3000$). Beyond standard convergence metrics, we tracked six novel per-trial pathway metrics via a manual tick loop with transition detection:
+To test the $N$-insensitivity suggested by Table~\ref{tab:ablation}, we extended the experiments to $N \in \{1{,}000,\; 2{,}000,\; 5{,}000,\; 10{,}000,\; 20{,}000\}$ with 30 trials per condition and adaptive $T_{\max}$.
+
+Tables~\ref{tab:large_N_sweep} and~\ref{tab:large_N_speedup} report the results. A log--log regression of convergence tick on $N$ yields scaling exponent $\alpha \approx 0.028$ ($t_{\mathrm{conv}} \propto N^{0.028}$)---effectively $O(1)$, confirming that cascade timing is driven by local anomaly accumulation rather than global information diffusion.
+
+\begin{table}[H]
+\centering
+\caption{Large-$N$ scaling: convergence rate and mean convergence tick (30 trials each). The full model (D) maintains 100\% convergence at all $N$; conditions without normative memory (A, B) fail to converge within $T_{\max}$.}
+\label{tab:large_N_sweep}
+\begin{tabular}{@{}r cc cc cc cc@{}}
+\toprule
+& \multicolumn{2}{c}{A\_baseline} & \multicolumn{2}{c}{B\_lockin} & \multicolumn{2}{c}{C\_norm\_only} & \multicolumn{2}{c}{D\_full} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+$N$ & Rate & Tick & Rate & Tick & Rate & Tick & Rate & Tick \\
+\midrule
+1\,000   & 0/30  & ---  & 0/30  & ---  & 30/30 & 110  & 30/30 & 107 \\
+2\,000   & 0/30  & ---  & 0/30  & ---  & 30/30 & 118  & 30/30 & 107 \\
+5\,000   & 0/30  & ---  & 0/30  & ---  & 30/30 & 123  & 30/30 & 113 \\
+10\,000  & 0/30  & ---  & 0/30  & ---  & 30/30 & 125  & 30/30 & 115 \\
+20\,000  & 0/30  & ---  & 0/30  & ---  & 30/30 & 131  & 30/30 & 115 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The speedup ratio (Table~\ref{tab:large_N_speedup}) is not constant: it grows with~$N$ because experiential-only convergence slows as $O(N)$ while normative-enabled convergence stays flat.
+
+\begin{table}[H]
+\centering
+\caption{Normative speedup at large $N$: mean convergence tick (Exp-only / Exp+Norm). The growing ratio reflects the $O(N)$ scaling of experiential-only convergence against the $O(1)$ scaling of the normative cascade. At $N \geq 10{,}000$, Dynamic-only convergence begins to fail (93\% and 77\%), making the normative system not merely faster but \emph{necessary} for reliable convergence.}
+\label{tab:large_N_speedup}
+\begin{tabular}{@{}r rrc rrc@{}}
+\toprule
+& \multicolumn{3}{c}{Fixed ($w{=}5$)} & \multicolumn{3}{c}{Dynamic $[2,6]$} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+$N$ & No Norm & +Norm & Ratio & No Norm & +Norm & Ratio \\
+\midrule
+1\,000   & 3\,773 (10/30) & 60  (30/30) & $62.5\times$ & 762  (30/30) & 46  (30/30) & $16.6\times$ \\
+2\,000   & 3\,487 (1/30)  & 62  (30/30) & $56.5\times$ & 873  (30/30) & 47  (30/30) & $18.4\times$ \\
+5\,000   & --- (0/30)     & 73  (30/30) & ---           & 1\,577 (30/30) & 53 (30/30) & $29.5\times$ \\
+10\,000  & --- (0/30)     & 77  (30/30) & ---           & 2\,452 (28/30) & 61 (30/30) & $40.0\times$ \\
+20\,000  & --- (0/30)     & 78  (30/30) & ---           & 4\,607 (23/30) & 61 (30/30) & $76.0\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Normative memory becomes necessary at scale.} Above $N{=}10{,}000$, experiential-only convergence rates drop below 100\% even in the Dynamic condition (Table~\ref{tab:large_N_speedup}), while every normative-enabled condition converges 30/30 at every~$N$ tested. The reason: each agent's experiential window ($w \leq 6$) covers an ever-smaller population fraction, degrading the signal-to-noise ratio as $O(1/\sqrt{N})$. The normative system bypasses this bottleneck because the dissolution--recrystallisation cascade is a local process operating at every minority-norm agent simultaneously---inherently parallel, hence $O(1)$ in time.
+
+\paragraph{Cascade pathway metrics confirm inherent parallelism.} Table~\ref{tab:cascade_scaling} tests a specific prediction: if the cascade is inherently parallel, dissolution \emph{counts} should scale as $O(N)$ while \emph{time} remains $O(1)$. The data confirm both: a fixed fraction (${\sim}40\%$) of agents undergo dissolution regardless of~$N$, and churn duration grows only logarithmically.
+
+\begin{table}[H]
+\centering
+\caption{Cascade pathway metrics vs.\ $N$ ($\theta_{\mathrm{crystal}} = 3$, $\Phi = 0$, 30 trials). Dissolutions scale $\propto N$ while convergence tick stays approximately constant---the cascade is an inherently parallel process.}
+\label{tab:cascade_scaling}
+\begin{tabular}{@{}r rrrr@{}}
+\toprule
+$N$ & Mean diss.\ & Mean flips & Mean churn (ticks) & Mean conv.\ tick \\
+\midrule
+100 (original) & 12 & 10 & 4.0 & 89 \\
+1\,000  & 312   & 254   & 27.6 & 108 \\
+5\,000  & 1\,771 & 1\,467 & 35.8 & 111 \\
+10\,000 & 3\,891 & 3\,141 & 39.6 & 113 \\
+20\,000 & 8\,164 & 6\,736 & 43.5 & 114 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Enforcement pressure}
+
+The scaling analysis above established the cascade at $\Phi = 0$. We now ask two questions: does $\Phi$ shift the phase transition boundary (known at $\theta \approx 7$ for $\Phi = 0$), and does $\Phi$ create qualitatively different convergence pathways? (A fine-grained $\Phi$ sweep probing non-monotonicity is reported in Appendix~\ref{app:nonmonotonic}.)
+
+\paragraph{Method.}
+All experiments use the full-model configuration ($N = 100$, $w_{\mathrm{base}} = 2$, $w_{\max} = 6$, $V = 0$, normative enabled) with default crystallisation parameters ($\sigma_0 = 0.8$, $k = 2$, $\theta_{\mathrm{crisis}} = 10$). Only $\theta_{\mathrm{crystal}}$ and $\Phi$ are varied. Each condition was run for 30 independent trials ($T = 3000$). The phase boundary and pathway analyses use independently drawn trial batches; because each batch contains only 30 trials, modest variation in convergence rates for nominally identical conditions is expected. Beyond standard convergence metrics, we tracked six novel per-trial pathway metrics via a manual tick loop with transition detection:
 
 \begin{itemize}[nosep]
 \item \textbf{Total dissolutions}---number of norm dissolution events across all ticks.
@@ -422,7 +563,7 @@ All experiments use the full-model configuration ($w_{\mathrm{base}} = 2$, $w_{\
 \item \textbf{Time in churn}---ticks where both dissolutions and new crystallisations occurred simultaneously.
 \end{itemize}
 
-\subsection{Phase boundary shift}
+\subsubsection{Phase boundary and convergence pathways}
 \label{sec:boundary}
 
 Table~\ref{tab:phase_boundary} shows convergence rates across a $\theta_{\mathrm{crystal}} \times \Phi$ grid (900 total runs).
@@ -448,12 +589,12 @@ $\theta_{\mathrm{crystal}}$ & $\Phi{=}0$ & $\Phi{=}0.5$ & $\Phi{=}1$ & $\Phi{=}2
 Two effects are visible:
 
 \begin{enumerate}
-\item \textbf{Above the baseline boundary ($\theta \geq 7$): enforcement helps.} At $\theta = 7$, convergence nearly doubles from 37\% ($\Phi = 0$) to 73\% ($\Phi = 5$). The mechanism is straightforward: at high crystallisation thresholds, many agents remain pre-crystallised for long periods. Enforcement signals deliver a push $\Phi(1-C)\gamma_{\mathrm{signal}} \cdot \mathrm{dir}$ into the DDM accumulator, accelerating crystallisation toward the direction of the enforcing (already-crystallised) agent. Since the majority-side crystallised agents are more numerous, the net signal push is majority-directed.
+\item \textbf{Above the baseline boundary ($\theta \geq 7$): enforcement helps.} At $\theta = 7$, convergence nearly doubles from 37\% ($\Phi = 0$) to 73\% ($\Phi = 5$).
 
-\item \textbf{Below the baseline boundary ($\theta \leq 5$): enforcement hurts.} At $\theta = 5$, convergence drops from 93\% ($\Phi = 0$) to 50\% ($\Phi = 5$). With a low crystallisation barrier, most agents crystallise quickly---but approximately half crystallise to each side (the population is still near 50-50 when most DDM accumulators cross the threshold). Once both sides are crystallised, enforcement between agents holding opposing norms creates \emph{mutual violations}: an $A$-norm agent enforces $A$ on a $B$-norm partner, but the partner is post-crystallised, so the enforcement is wasted and the violation counts as anomaly (DD-7). This accelerates crisis and dissolution on both sides, creating turbulence that prevents the cascade from completing.
+\item \textbf{Below the baseline boundary ($\theta \leq 5$): enforcement hurts.} At $\theta = 5$, convergence drops from 93\% ($\Phi = 0$) to 50\% ($\Phi = 5$).
 \end{enumerate}
 
-Table~\ref{tab:phase_dissolutions} confirms this mechanism: dissolutions increase with $\Phi$ at every $\theta$ level.
+\noindent Table~\ref{tab:phase_dissolutions} confirms that dissolutions increase with $\Phi$ at every $\theta$ level. The mechanism behind this asymmetry---two competing channels of enforcement---is analysed in Section~\ref{sec:two_faces}.
 
 \begin{table}[H]
 \centering
@@ -475,9 +616,10 @@ $\theta_{\mathrm{crystal}}$ & $\Phi{=}0$ & $\Phi{=}0.5$ & $\Phi{=}1$ & $\Phi{=}2
 
 The $\theta = 3$ row is instructive: even though convergence is 100\% at all $\Phi$, the number of dissolutions rises from 15 to 28. Enforcement creates more turbulence, but the low crystallisation barrier allows rapid re-crystallisation, so the cascade still completes.
 
-\subsection{Convergence pathways}
-\label{sec:pathways}
+\paragraph{Phase boundary sharpening at large $N$.} Large-$N$ cascade experiments ($N \in \{1{,}000,\; 5{,}000,\; 10{,}000,\; 20{,}000\}$, 30 trials per cell) reveal that the phase boundary becomes \emph{sharper} with increasing $N$. At $\theta = 3$, convergence remains 100\% at all $N$ and $\Phi$ tested---the low-barrier cascade is impervious to scale. At $\theta = 7$, however, convergence collapses: from 37\% at $N{=}100$ ($\Phi{=}0$) to 3\% at $N{=}1{,}000$ and 0\% at $N \geq 5{,}000$. Even the strongest enforcement ($\Phi = 5$) recovers only 23\% convergence at $N{=}20{,}000$ (vs.\ 73\% at $N{=}100$). The mechanism is that larger populations produce a more symmetric initial crystallisation split (by the law of large numbers, $n_A \approx n_B$ at early ticks), making it harder for the stochastic fluctuation needed to break symmetry at high $\theta$. This does not affect the core cascade mechanism at low $\theta$, but it means that the ``enforcement helps above boundary'' finding (Table~\ref{tab:phase_boundary}) is specific to moderate $N$; at very large $N$, enforcement alone cannot overcome the symmetric initial split at high crystallisation thresholds.
 
+\paragraph{Convergence pathways.}
+\label{sec:pathways}
 To distinguish pathway types, we examined detailed metrics at two representative thresholds ($\theta = 3$ and $\theta = 7$) across $\Phi$ levels (300 runs; Table~\ref{tab:pathways}).
 
 \begin{table}[H]
@@ -506,18 +648,191 @@ $\theta$ & $\Phi$ & Conv\% & $\mu_{\mathrm{diss}}$ & $\mu_{\mathrm{enf}}$ & $\mu
 
 Three qualitative pathway types emerge:
 
-\paragraph{Clean cascade ($\Phi = 0$, low $\theta$).} The mechanism described in Section~\ref{sec:cascade}: agents crystallise to both sides, differential erosion breaks symmetry, minority norms dissolve and re-crystallise to the majority. The 9.9 flips and 0 same-direction recrystallisations confirm the one-way ratchet. Moderate churn (4.0 ticks) reflects the dissolution--recrystallisation wave.
+\paragraph{Clean cascade ($\Phi = 0$, low $\theta$).} The mechanism described in Section~\ref{sec:cascade}: agents crystallise to both sides, differential erosion breaks symmetry, minority norms dissolve and re-crystallise to the majority. The 9.9 flips and 0 same-direction recrystallisations confirm the one-way ratchet (Section~\ref{sec:ratchet}). Moderate churn (4.0 ticks) reflects the dissolution--recrystallisation wave.
 
 \paragraph{Enforcement-assisted ($0 < \Phi \leq 2$, high $\theta$).} Enforcement signals accelerate DDM evidence accumulation in pre-crystallised agents, nudging them toward the majority norm. Dissolutions stay low ($\leq 2.2$), churn decreases from 1.5 to 0.4--0.5 ticks, and recrystallisation events nearly vanish---the cascade is smoother because fewer agents need to dissolve and switch. Convergence rate improves from 53\% to 67--70\%.
 
 \paragraph{Enforcement-turbulent ($\Phi \geq 5$, low $\theta$).} High enforcement pressure generates 761 enforcement signals and 33.2 dissolutions per trial---nearly triple the no-enforcement baseline. Churn increases to 4.8 ticks. Yet convergence remains 100\%: the low crystallisation barrier ensures rapid re-crystallisation, and the one-way ratchet ($\mu_{\mathrm{flip}} = 27.9$, $\mu_{\mathrm{same}} = 2.2$) is maintained despite the turbulence. The cost is ${\sim}20\%$ slower convergence (107 vs.\ 89 ticks).
 
-\paragraph{Key observation.} The one-way ratchet identified in Section~\ref{sec:cascade} is robust to enforcement. Even at $\Phi = 5$ (the highest tested), the flip-to-same ratio remains $>$10:1 at $\theta = 3$---dissolved agents overwhelmingly re-crystallise toward the majority. Enforcement creates more dissolution events but does not disrupt the directional bias of the cascade.
+\paragraph{Key observation.} The one-way ratchet (Section~\ref{sec:ratchet}) is robust to enforcement: even at $\Phi = 5$, the flip-to-same ratio remains $>$10:1 at $\theta = 3$.
 
-\subsection{Non-monotonic enforcement effect}
-\label{sec:nonmonotonic}
+\subsubsection{Interpretation: two faces of enforcement}
+\label{sec:two_faces}
 
-To search for an optimal $\Phi$, we swept a fine grid of 11 values at three crystallisation thresholds (990 runs; Table~\ref{tab:nonmonotonic}).
+The results reveal that enforcement operates through two competing channels:
+
+\paragraph{Beneficial channel: DDM acceleration.} Enforcement signals deliver a push $\Phi(1-C)\gamma_{\mathrm{signal}} \cdot \mathrm{dir}$ into pre-crystallised agents' evidence accumulators. When the enforcing agent holds the majority norm, this accelerates crystallisation in the majority direction. This channel dominates when many agents remain pre-crystallised---i.e., when $\theta_{\mathrm{crystal}}$ is high.
+
+\paragraph{Harmful channel: mutual destabilisation.} When two agents hold opposing crystallised norms, enforcement triggers mutual violations (DD-7: enforcement against a post-crystallised partner is wasted, and the violation counts as anomaly). This accelerates crisis on both sides, increasing dissolution and potentially creating churn cycles. This channel dominates when most agents are already crystallised---i.e., when $\theta_{\mathrm{crystal}}$ is low and agents crystallise early into a roughly symmetric split.
+
+\paragraph{The balance.} The relative strength of these channels depends on the fraction of agents that are pre-crystallised when enforcement begins. At $\theta = 7$, the DDM barrier is high enough that the enforcement-beneficial window is large---many agents are still accumulating evidence when the first crystallised agents begin enforcing. At $\theta = 5$, the barrier is low enough that by the time enforcement becomes active (requiring $\sigma > \theta_{\mathrm{enforce}} = 0.7$), most agents have already crystallised to both sides, and enforcement primarily creates cross-norm destabilisation.
+
+This mechanistic account also explains the high dissolution rate at $\theta = 3$ even at $\Phi = 0$ (12.4 dissolutions): with a very low barrier, agents crystallise as soon as $b_{\exp}$ drifts even slightly from 0.5, before any strong behavioural asymmetry develops. This ensures roughly equal numbers crystallise on each side. The subsequent cascade must dissolve the entire minority side---a process that enforcement amplifies but cannot disrupt, because the one-way ratchet is maintained by the experiential memory signal that grows stronger as the cascade progresses.
+
+\subsubsection{Quantitative mediation test}
+\label{sec:mediation}
+
+The two-channel interpretation above (Section~\ref{sec:two_faces}) implies a specific causal chain: $\Phi$ affects convergence speed \emph{through} enforcement-driven dissolutions, not (or not only) through a direct effect. We tested this formally using Baron--Kenny mediation analysis with bootstrap confidence intervals on the 243 converged runs from the pathway dataset.
+
+\paragraph{Path 1: $\Phi \to$ enforcements $\to$ convergence speed.}
+
+\begin{table}[H]
+\centering
+\caption{Mediation path coefficients (outcome: $\log t_{\mathrm{conv}}$).}
+\label{tab:mediation}
+\begin{tabular}{@{}llrl@{}}
+\toprule
+Path & Coef.\ & $p$ & Interpretation \\
+\midrule
+$c$ (total: $\Phi \to \log t_{\mathrm{conv}}$) & $+0.012$ & --- & Small positive total effect \\
+$a$ ($\Phi \to$ enforcements) & $+68.6$ & ${<}\,0.001$ & $\Phi$ strongly increases enforcement count \\
+$b$ (enforcements $\to \log t_{\mathrm{conv}}$ $\mid$ $\Phi$) & $+0.0002$ & ${<}\,0.001$ & More enforcement $\to$ slower convergence \\
+$c'$ (direct: $\Phi \to \log t_{\mathrm{conv}}$ $\mid$ enforcements) & $-0.004$ & n.s.\ & Direct effect reverses sign \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Indirect effect $a \times b = 0.016$ (Sobel $z = 4.70$, $p < 0.001$; bootstrap 95\% CI $[0.010, 0.024]$, $B = 2000$). The proportion mediated is 1.33---exceeding 1.0, which indicates a \emph{suppression effect}: the direct effect of $\Phi$ is actually \emph{negative} ($c' = -0.004$), meaning enforcement accelerates convergence through a non-mediated channel (DDM acceleration of pre-crystallised agents), but this beneficial effect is masked and reversed by the positive indirect pathway through enforcement-induced turbulence.
+
+\paragraph{Path 2: $\Phi \to$ dissolutions $\to$ convergence speed.}
+
+\noindent Indirect effect $= 0.012$ (Sobel $z = 3.90$, $p < 0.001$; bootstrap 95\% CI $[0.005, 0.020]$). Proportion mediated $= 1.01$. Both bootstrap confidence intervals exclude zero.
+
+\paragraph{Interpretation.} The mediation maps directly onto the two channels identified in Section~\ref{sec:two_faces}: the beneficial channel (DDM acceleration) appears as the negative direct effect $c' < 0$; the harmful channel (mutual destabilisation) appears as the positive indirect effect $a \times b > 0$. The suppression pattern (proportion mediated $> 1$) is the statistical signature of two opposing causal pathways.
+
+%% ════════════════════════════════════════════════════════════════
+\section{Robustness}
+\label{sec:robustness}
+%% ════════════════════════════════════════════════════════════════
+
+\subsection{Cross-seed consistency (30 seeds)}
+
+\begin{table}[H]
+\centering
+\caption{Cascade timing across 30 seeds ($N = 100$, Dynamic+Norm).}
+\label{tab:robustness}
+\begin{tabular}{@{}l rrr@{}}
+\toprule
+Metric & Mean & Median & Range \\
+\midrule
+Symmetry-breaking phase ends & 8.4 & 8.0 & [0, 43] \\
+\textbf{Cascade duration} & \textbf{37.7} & \textbf{35.0} & \textbf{[28, 62]} \\
+Behavioural convergence tick & 37.2 & 33.5 & [21, 76] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The cascade duration is remarkably stable (median 35.0 ticks). Variability comes from the symmetry-breaking phase, not the cascade itself: the earliest trials happen to get an asymmetric initial draw, while the latest take $\sim$43 ticks to break symmetry.
+
+\subsection{Symmetry between strategies}
+
+Of the 30 seeds, 16 converged to $A$ and 14 to $B$---consistent with the model's complete symmetry. The winning side is determined by stochastic fluctuations during the symmetry-breaking phase.
+
+\subsection{Small-population regime}
+\label{sec:small_N}
+
+To test whether the normative speedup vanishes when populations are small enough for experiential memory alone to suffice, we ran the Dynamic condition (Norm ON vs.\ OFF, $w_{\mathrm{base}}{=}2$, $w_{\max}{=}6$) at $N \in \{4, 6, 8, 10, 16, 20\}$ with 100 trials per cell and $T_{\max}{=}3{,}000$. All conditions achieved 100\% convergence at every $N$, confirming that small populations are easy for both memory systems.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{figures/fig_small_N_speedup.png}
+    \caption{Normative speedup ratio (mean convergence tick without normative memory divided by mean convergence tick with normative memory) as a function of population size $N$. Error bars show $\pm 1$ SE via the delta method. The dashed line marks ratio${=}1$ (no speedup).}
+    \label{fig:small_N_speedup}
+\end{figure}
+
+The speedup is never unity: even at $N{=}4$ the normative system provides a $1.5\times$ advantage, because the cascade mechanism still accelerates consensus once crystallisation begins. As $N$ grows, the speedup rises monotonically---from $1.5\times$ ($N{=}4$) through $2.6\times$ ($N{=}10$) to $3.2\times$ ($N{=}20$)---because each agent's experiential window ($w \leq 6$) covers a shrinking fraction of the population, degrading the experiential signal-to-noise ratio while the cascade remains a local, parallel process. Combined with the large-$N$ results in Table~\ref{tab:large_N_speedup}, the full speedup curve spans $N{=}4$ to $N{=}20{,}000$: normative memory is always beneficial, and its advantage grows from $1.5\times$ to $76\times$ across nearly four orders of magnitude in population size.
+
+%% ════════════════════════════════════════════════════════════════
+\section{Discussion}
+\label{sec:discussion}
+%% ════════════════════════════════════════════════════════════════
+
+\subsection{Relation to existing approaches}
+\label{sec:lit_comparison}
+
+Table~\ref{tab:lit_comparison} situates the model against the four closest research programmes.
+
+\begin{table}[H]
+\centering
+\caption{Comparison with related modelling traditions. ``---'' indicates the feature is absent or not analysed.}
+\label{tab:lit_comparison}
+\small
+\begin{tabular}{@{}p{2.4cm} p{2.6cm} p{2.6cm} p{2.6cm} p{2.6cm}@{}}
+\toprule
+& \textbf{Young / KMR} \citep{young1993evolution,kandori1993learning,ellison1993learning} & \textbf{Granovetter / Watts} \citep{granovetter1978threshold,watts2002simple} & \textbf{Conte / Epstein} \citep{conte1995cognitive,epstein2001learning} & \textbf{This model} \\
+\midrule
+Internal state & Best-response to sample & Exogenous adoption threshold & Mental representation (Conte); zone conformity (Epstein) & $(r, \sigma)$ + $b_{\exp}$ + $C$ \\
+\addlinespace
+Threshold source & --- & Fixed, exogenous & --- & Endogenous (DDM accumulator; depends on confidence history) \\
+\addlinespace
+Reversibility & N/A (absorbing) & Irreversible & --- & Dissolve \& recrystallise (one-way ratchet) \\
+\addlinespace
+Scaling in $N$ & $O(N)$ polynomial & Network-dependent & Not analysed & $O(1)$ ($\alpha \approx 0.03$) \\
+\addlinespace
+Cascade mechanism & None (diffusion) & Threshold cascade & None identified & Anomaly--crisis--dissolution \\
+\addlinespace
+Empirical grounding & Game theory axioms & Sociological observation & Philosophical argument & Germar (DDM shift), Hertwig (small samples), Behrens (volatility) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three points of contrast merit brief comment.  First, our experiential-memory-only condition (Section~\ref{sec:ablation}) reproduces essentially Young's dynamic---diffusive, $O(N)$, degrading at large~$N$---confirming that the normative layer, not a modelling trick, drives the scaling change.  Second, unlike Granovetter/Watts cascades, adoption here is reversible at the individual level yet irreversible at the population level via the one-way ratchet (Section~\ref{sec:ratchet}); this self-correcting mechanism has no analog in standard threshold models.  Third, our cascade resembles \citeauthor{centola2007complex}'s (\citeyear{centola2007complex}) complex contagion (requiring sustained evidence, not single exposure), yet propagates efficiently on a well-mixed network because each agent accumulates evidence independently from random pairings---the cascade is inherently parallel rather than sequential.
+
+The DDM-crystallisation mechanism is directly grounded in \citeauthor{germar2014social}'s (\citeyear{germar2014social}; \citeyear{germar2019learning}) experimental findings that majority exposure shifts perceptual drift rates and that this shift persists after removal of the social signal.  The ``copy when uncertain'' principle \citep{rendell2010copy,boyd1985culture} maps onto our confidence-gating ($\text{drift} \propto 1 - C$); the DDM formulation adds temporal specificity, predicting \emph{when} crystallisation occurs and \emph{whether} it can be reversed.
+
+\subsection{Testable predictions}
+\label{sec:predictions}
+
+The model generates four predictions testable in laboratory coordination games:
+
+\begin{enumerate}[nosep]
+\item \textbf{Confidence and norm adoption.}  Agents with lower predictive confidence crystallise earlier (Eq.~\ref{eq:ddm}: drift $\propto 1 - C$).  In a multi-round coordination game with tracked prediction accuracy, subjects whose recent accuracy is low should be faster to adopt a behavioural rule---and harder to dislodge once they have.  This extends \citeauthor{germar2014social}'s (\citeyear{germar2014social}) paradigm from perceptual to strategic settings.
+
+\item \textbf{Early warning signals.}  Population-level belief variance should increase before a norm cascade becomes visible in adoption counts (Section~\ref{sec:ews}).  Real-time monitoring of stated beliefs or action probabilities in a lab setting should reveal a monotonically increasing variance trend in the pre-cascade window, with a lead time proportional to the cascade magnitude.
+
+\item \textbf{The one-way ratchet.}  If a nascent norm is experimentally disrupted (e.g., by temporarily removing committed subjects), the disrupted subjects should re-adopt the majority norm upon return, not revert to the minority position.  The model predicts zero same-direction recrystallisation after dissolution in a majority-$A$ environment.
+
+\item \textbf{Scaling independence.}  In a condition that allows norm expression (e.g., subjects can declare and enforce a rule), convergence time should be approximately independent of group size.  In a minimal-information control (observation only, no norm expression), convergence should slow linearly with group size.  The predicted ratio between conditions should grow with~$N$, from ${\sim}1.5\times$ at $N{=}4$ (Figure~\ref{fig:small_N_speedup}) to ${\sim}76\times$ at $N{=}20{,}000$ (Table~\ref{tab:large_N_speedup}).
+\end{enumerate}
+
+\subsection{Limitations and extensions}
+\label{sec:limitations}
+
+\paragraph{Well-mixed population.}  Random pairing assumes a complete interaction graph.  Real social networks are structured: clustered neighbourhoods, high-degree hubs, community boundaries.  Network topology could qualitatively alter the cascade---clustering might sustain persistent minority-norm pockets that resist dissolution \citep{centola2007complex}, while hubs might seed cascades disproportionately.  Whether the $O(1)$ scaling survives topological constraint is the most pressing open question.
+
+\paragraph{Symmetric coordination game.}  $A$ and $B$ are payoff-equivalent by construction.  This is a useful theoretical control---the norm is purely endogenous---but real norms often coordinate on payoff-asymmetric equilibria.  Extending to asymmetric games would test whether the cascade can lock in Pareto-dominated norms, a question central to the classical norm-emergence literature.
+
+\paragraph{No communication.}  Agents observe actions but cannot signal intentions.  Human norm emergence routinely involves explicit discussion, argumentation, and persuasion.  Adding even a simple signalling channel could enable second-order beliefs (``my partner signalled~$A$, so they probably hold an $A$-norm''), potentially bridging the gap between our proto-norms and Bicchieri's full social norms.
+
+\paragraph{Homogeneous agents.}  All agents are identical at initialisation.  Heterogeneity in $\theta_{\mathrm{crystal}}$ or $\theta_{\mathrm{crisis}}$ would produce stratified adoption: some agents as norm entrepreneurs (low threshold, fast crystallisation), others as late adopters.  This connects to \citeauthor{granovetter1978threshold}'s (\citeyear{granovetter1978threshold}) insight that the \emph{distribution} of thresholds, not just the mean, determines cascade dynamics.
+
+\paragraph{Calibration.}  Several normative-layer parameters ($\theta_{\mathrm{crystal}}$, $\theta_{\mathrm{crisis}}$, $\sigma_{\min}$, $\lambda_{\mathrm{crisis}}$) are set by calibration rather than derived from empirical data.  The phase boundary analysis (Section~\ref{sec:boundary}) shows that the cascade mechanism is robust across $\theta_{\mathrm{crystal}} \in [3, 5]$, but quantitative predictions (cascade duration ${\sim}35$ ticks) depend on these choices.  Connecting these parameters to experimentally measured quantities---for instance, mapping $\theta_{\mathrm{crystal}}$ to the number of consistent social exposures needed to shift a subject's drift rate in a Germar-type paradigm---would ground the model empirically and narrow the free-parameter space.
+
+\paragraph{Binary strategies.}  The model uses a two-strategy coordination game.  Extension to multi-strategy settings would test whether the cascade mechanism can select among multiple competing norms---a question of both theoretical and practical interest for understanding real-world norm diversity.
+
+%% ════════════════════════════════════════════════════════════════
+\section{Summary}
+\label{sec:summary}
+%% ════════════════════════════════════════════════════════════════
+
+\begin{enumerate}[nosep]
+\item \textbf{Neither memory system alone is sufficient.} Experiential memory provides a noisy mean-field sensor that can drive convergence, but with $O(N)$ scaling that degrades at large populations (Section~\ref{sec:ablation}). Normative memory amplifies weak experiential signals into strong behavioural commitments, but without an experiential signal to amplify, convergence cannot occur.
+
+\item \textbf{Together they produce a self-amplifying cascade.} The dissolution--recrystallisation cycle creates two interlocking feedback loops whose completion time is effectively independent of~$N$ ($\alpha \approx 0.03$; Tables~\ref{tab:large_N_sweep},~\ref{tab:cascade_scaling}). The normative speedup grows with population size (Table~\ref{tab:large_N_speedup}), and above $N{=}10{,}000$ normative memory becomes a prerequisite for reliable convergence.
+
+\item \textbf{The cascade has a verifiable causal structure.} Granger causality confirms the anomaly~$\to$~dissolution~$\to$~belief-shift chain at every $N$ tested (Section~\ref{sec:granger}). Belief variance increases monotonically before the cascade, providing a potential early warning window (Section~\ref{sec:ews}).
+
+\item \textbf{Enforcement has two opposing channels} whose balance depends on the crystallisation threshold (Section~\ref{sec:two_faces}). Formal mediation analysis confirms a suppression effect: the direct channel accelerates convergence while the indirect channel, through enforcement-driven turbulence, slows it (Section~\ref{sec:mediation}).
+
+\item \textbf{All of this emerges from purely local interactions}---no agent ever observes the global state.
+\end{enumerate}
+
+%% ════════════════════════════════════════════════════════════════
+\appendix
+\section{Fine-grained enforcement sweep}
+\label{app:nonmonotonic}
+
+To test whether an optimal enforcement level exists, we swept a fine grid of 11 $\Phi$ values at three crystallisation thresholds (990 runs; Table~\ref{tab:nonmonotonic}).
 
 \begin{table}[H]
 \centering
@@ -545,85 +860,9 @@ $\Phi$ & Rate & Diss. & Rate & Diss. & Rate & Diss. \\
 \end{tabular}
 \end{table}
 
-The three thresholds show qualitatively different $\Phi$-response profiles:
-
-\begin{enumerate}
-\item \textbf{$\theta = 3$ (below boundary): immune to $\Phi$.} Convergence rate is 100\% everywhere. Dissolutions rise monotonically from 12 to 38 as $\Phi$ increases, but the low barrier ensures re-crystallisation always completes the cascade.
-
-\item \textbf{$\theta = 5$ (near boundary): monotonic degradation.} Convergence declines from 90\% to 50\% as $\Phi$ increases. Most agents crystallise quickly at $\theta = 5$, so enforcement primarily creates mutual violations between opposing crystallised agents, destabilising both sides (dissolutions rise from 4 to 21).
-
-\item \textbf{$\theta = 7$ (at boundary): non-monotonic with possible bimodality.} Two local peaks appear: $\Phi \approx 0.3$ (77\%) and $\Phi \approx 3$ (80\%), with a valley at $\Phi \approx 1$--$1.5$ (53--57\%) and a decline at $\Phi = 5$ (63\%). While the 30-trial sample sizes preclude strong statistical claims about the exact peak locations, the overall pattern---improvement at both low and high $\Phi$ relative to the intermediate range---is consistent across the independently seeded analyses (compare Table~\ref{tab:phase_boundary}: $\theta = 7$ also shows monotonic improvement from 37\% to 73\%).
-\end{enumerate}
-
-A tentative interpretation of the bimodal pattern at $\theta = 7$: low $\Phi$ provides just enough signal push to tip marginal DDM accumulators over the crystallisation threshold without destabilising existing norms; intermediate $\Phi$ is strong enough to trigger enforcement-driven violations among the few early-crystallised agents but too weak to rapidly crystallise the remaining pre-crystallised majority; high $\Phi$ overwhelms both effects, converting nearly all pre-crystallised agents before mutual destabilisation can accumulate. This hypothesis requires larger sample sizes and agent-level trajectory analysis to confirm.
-
-\subsection{Interpretation: two faces of enforcement}
-\label{sec:two_faces}
-
-The results reveal that enforcement operates through two competing channels:
-
-\paragraph{Beneficial channel: DDM acceleration.} Enforcement signals deliver a push $\Phi(1-C)\gamma_{\mathrm{signal}} \cdot \mathrm{dir}$ into pre-crystallised agents' evidence accumulators. When the enforcing agent holds the majority norm, this accelerates crystallisation in the majority direction. This channel dominates when many agents remain pre-crystallised---i.e., when $\theta_{\mathrm{crystal}}$ is high.
-
-\paragraph{Harmful channel: mutual destabilisation.} When two agents hold opposing crystallised norms, enforcement triggers mutual violations (DD-7: enforcement against a post-crystallised partner is wasted, and the violation counts as anomaly). This accelerates crisis on both sides, increasing dissolution and potentially creating churn cycles. This channel dominates when most agents are already crystallised---i.e., when $\theta_{\mathrm{crystal}}$ is low and agents crystallise early into a roughly symmetric split.
-
-\paragraph{The balance.} The relative strength of these channels depends on the fraction of agents that are pre-crystallised when enforcement begins. At $\theta = 7$, the DDM barrier is high enough that the enforcement-beneficial window is large---many agents are still accumulating evidence when the first crystallised agents begin enforcing. At $\theta = 5$, the barrier is low enough that by the time enforcement becomes active (requiring $\sigma > \theta_{\mathrm{enforce}} = 0.7$), most agents have already crystallised to both sides, and enforcement primarily creates cross-norm destabilisation.
-
-This mechanistic account also explains the high dissolution rate at $\theta = 3$ even at $\Phi = 0$ (12.4 dissolutions): with a very low barrier, agents crystallise before any behavioural asymmetry develops, ensuring roughly equal numbers on each side. The subsequent cascade must dissolve the entire minority side---a process that enforcement amplifies but cannot disrupt, because the one-way ratchet is maintained by the experiential memory signal that grows stronger as the cascade progresses.
+The three thresholds show qualitatively different $\Phi$-response profiles. At $\theta = 3$ (below boundary), convergence is 100\% everywhere; dissolutions rise monotonically but the low barrier ensures re-crystallisation always completes the cascade. At $\theta = 5$ (near boundary), convergence declines monotonically from 90\% to 50\% as enforcement primarily creates mutual violations between opposing crystallised agents. At $\theta = 7$ (at boundary), the response is non-monotonic: two local peaks appear at $\Phi \approx 0.3$ (77\%) and $\Phi \approx 3$ (80\%), with a valley at intermediate $\Phi$. A tentative interpretation: low $\Phi$ tips marginal DDM accumulators over the crystallisation threshold without destabilising existing norms; intermediate $\Phi$ triggers enforcement-driven violations but is too weak to rapidly crystallise the remaining majority; high $\Phi$ overwhelms both effects. This hypothesis requires larger sample sizes and agent-level trajectory analysis to confirm.
 
 %% ════════════════════════════════════════════════════════════════
-\section{Robustness}
-\label{sec:robustness}
-%% ════════════════════════════════════════════════════════════════
-
-\subsection{Cross-seed consistency (30 seeds)}
-
-\begin{table}[H]
-\centering
-\caption{Cascade timing across 30 seeds ($N = 100$, Dynamic+Norm).}
-\label{tab:robustness}
-\begin{tabular}{@{}l rrr@{}}
-\toprule
-Metric & Mean & Median & Range \\
-\midrule
-Symmetry breaks (last tick $|n_A - n_B| \leq 2$) & 10.4 & 7.5 & [0, 38] \\
-Cascade completes (minority norm $= 0$) & 41.5 & 43.5 & [10, 79] \\
-\textbf{Cascade duration} & \textbf{31.1} & \textbf{33.5} & \textbf{[4, 45]} \\
-Behavioural convergence tick & 34.5 & 33.5 & [17, 70] \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The cascade duration is remarkably stable (median 33.5 ticks). Variability comes from the symmetry-breaking phase, not the cascade itself: the earliest trials happen to get an asymmetric initial draw, while the latest take $\sim$38 ticks to break symmetry.
-
-\subsection{Population-size invariance}
-
-From Table~\ref{tab:ablation}, Dynamic+Norm converges in 25 ticks at $N{=}20$, 37 at $N{=}100$, and 43 at $N{=}500$. A 25-fold increase in population adds only 18 ticks. The cascade mechanism---driven by local anomaly rates, not global diffusion---is inherently $N$-insensitive.
-
-\subsection{Symmetry between strategies}
-
-Of the 30 seeds, 16 converged to $A$ and 14 to $B$---consistent with the model's complete symmetry. The winning side is determined by stochastic fluctuations during the symmetry-breaking phase.
-
-%% ════════════════════════════════════════════════════════════════
-\section{Summary}
-\label{sec:summary}
-%% ════════════════════════════════════════════════════════════════
-
-\begin{enumerate}
-\item \textbf{Experiential memory} provides a noisy local estimate of the population behavioural frequency---a stochastic mean-field sensor. It can produce convergence alone, but slowly and with $O(N)$ scaling.
-
-\item \textbf{Normative memory} acts as a signal amplifier: crystallisation converts a weak experiential signal ($b_{\exp} \approx 0.55$) into strong behavioural commitment ($b_{\mathrm{eff}} \approx 0.85$), and the dissolution-recrystallisation cycle ensures that amplification is unidirectional.
-
-\item The amplification creates two interlocking positive-feedback loops (differential erosion $+$ dissolution cascade) that produce a \textbf{phase transition} from symmetric disorder to full consensus in $\sim$30 ticks, largely independent of $N$.
-
-\item Neither system alone is sufficient: without experiential memory, the amplifier has no signal; without normative memory, the signal diffuses slowly.
-
-\item \textbf{Enforcement pressure ($\Phi > 0$) has a dual nature.} It accelerates crystallisation in pre-crystallised agents (beneficial) but creates mutual destabilisation between agents holding opposing norms (harmful). The balance depends on $\theta_{\mathrm{crystal}}$: enforcement helps above the phase boundary ($\theta \geq 7$, convergence 37\% $\to$ 73\%) and hurts below it ($\theta = 5$, convergence 93\% $\to$ 50\%). The one-way ratchet is robust to enforcement---dissolved agents overwhelmingly re-crystallise toward the majority even at high $\Phi$.
-
-\item All of this emerges from purely local interactions---no agent ever observes the global state.
-\end{enumerate}
-
-%% ════════════════════════════════════════════════════════════════
-\bibliographystyle{apalike}
 \begin{thebibliography}{99}
 
 \bibitem[Behrens et al.(2007)]{behrens2007learning}
@@ -656,20 +895,80 @@ Nevo, I., \& Erev, I. (2012).
 Bounded memory, inertia, sampling and weighting model for market entry games.
 \textit{Games}, 3(1), 20--41.
 
-\bibitem[Rand et al.(2014)]{rand2014social}
-Rand, D.~G., Peysakhovich, A., Kraft-Todd, G.~T., Newman, G.~E., Wurzbacher, O., Nowak, M.~A., \& Greene, J.~D. (2014).
-Social heuristics shape intuitive cooperation.
-\textit{Nature Communications}, 5, 3677.
-
 \bibitem[Rendell et al.(2010)]{rendell2010copy}
 Rendell, L., Boyd, R., Cownden, D., et al. (2010).
 Why copy others? Insights from the social learning strategies tournament.
 \textit{Science}, 328(5975), 208--213.
 
-\bibitem[Slovic(1993)]{slovic1993perceived}
-Slovic, P. (1993).
-Perceived risk, trust, and democracy.
-\textit{Risk Analysis}, 13(6), 675--682.
+\bibitem[Scheffer et al.(2009)]{scheffer2009early}
+Scheffer, M., Bascompte, J., Brock, W.~A., Brovkin, V., Carpenter, S.~R., Dakos, V., Held, H., van Nes, E.~H., Rietkerk, M., \& Sugihara, G. (2009).
+Early-warning signals for critical transitions.
+\textit{Nature}, 461(7260), 53--59.
+
+\bibitem[Dakos et al.(2012)]{dakos2012methods}
+Dakos, V., Carpenter, S.~R., Brock, W.~A., Ellison, A.~M., Guttal, V., Ives, A.~R., K\'{e}fi, S., Livina, V., Seekell, D.~A., van Nes, E.~H., \& Scheffer, M. (2012).
+Methods for detecting early warnings of critical transitions in time series illustrated using simulated ecological data.
+\textit{PLoS ONE}, 7(7), e41010.
+
+\bibitem[Granger(1969)]{granger1969investigating}
+Granger, C.~W.~J. (1969).
+Investigating causal relations by econometric models and cross-spectral methods.
+\textit{Econometrica}, 37(3), 424--438.
+
+\bibitem[Page(1954)]{page1954continuous}
+Page, E.~S. (1954).
+Continuous inspection schemes.
+\textit{Biometrika}, 41(1/2), 100--115.
+
+\bibitem[Young(1993)]{young1993evolution}
+Young, H.~P. (1993).
+The evolution of conventions.
+\textit{Econometrica}, 61(1), 57--84.
+
+\bibitem[Kandori et al.(1993)]{kandori1993learning}
+Kandori, M., Mailath, G.~J., \& Rob, R. (1993).
+Learning, mutation, and long run equilibria in games.
+\textit{Econometrica}, 61(1), 29--56.
+
+\bibitem[Ellison(1993)]{ellison1993learning}
+Ellison, G. (1993).
+Learning, local interaction, and coordination.
+\textit{Econometrica}, 61(5), 1047--1071.
+
+\bibitem[Granovetter(1978)]{granovetter1978threshold}
+Granovetter, M. (1978).
+Threshold models of collective behavior.
+\textit{American Journal of Sociology}, 83(6), 1420--1443.
+
+\bibitem[Watts(2002)]{watts2002simple}
+Watts, D.~J. (2002).
+A simple model of global cascades on random networks.
+\textit{Proceedings of the National Academy of Sciences}, 99(9), 5766--5771.
+
+\bibitem[Centola \& Macy(2007)]{centola2007complex}
+Centola, D., \& Macy, M. (2007).
+Complex contagions and the weakness of long ties.
+\textit{American Journal of Sociology}, 113(3), 702--734.
+
+\bibitem[Boyd \& Richerson(1985)]{boyd1985culture}
+Boyd, R., \& Richerson, P.~J. (1985).
+\textit{Culture and the Evolutionary Process}.
+University of Chicago Press.
+
+\bibitem[Conte \& Castelfranchi(1995)]{conte1995cognitive}
+Conte, R., \& Castelfranchi, C. (1995).
+\textit{Cognitive and Social Action}.
+UCL Press.
+
+\bibitem[Epstein(2001)]{epstein2001learning}
+Epstein, J.~M. (2001).
+Learning to be thoughtless: Social norms and individual computation.
+\textit{Computational Economics}, 18(1), 9--24.
+
+\bibitem[Lewis(1969)]{lewis1969convention}
+Lewis, D. (1969).
+\textit{Convention: A Philosophical Study}.
+Harvard University Press.
 
 \end{thebibliography}
 
