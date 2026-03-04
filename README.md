@@ -49,4 +49,44 @@ Agents play a symmetric coordination game {A, B}, equipped with experiential mem
 
 ---
 
+## Parameter Sweep Summary
+
+### Completed Sweeps
+
+| Sweep | Dimensions | Range | Trials | Data File |
+|-------|-----------|-------|--------|-----------|
+| Ablation 3×2 | exp_level × norm_on × N | 3×2×{20–20,000} | 30 each | `ablation_3x2_summary.csv` |
+| N scaling | N | {20, 50, 100, 200, 500} + {1k–20k} | 30 each | `sweep_N.csv`, `large_N/sweep_N_extended.csv` |
+| θ_crystal | θ | {0.5, 1, 2, 3, 5, 8, 12} + fine grid | 30 each | `sweep_theta_crystal.csv`, `theta_crystal_fine.csv` |
+| θ × N interaction | θ × N | {1,3,5,8,12} × {50,100,200,500} | 30 each | `theta_crystal_x_N.csv` |
+| α/β asymmetry | β | {0.15, 0.2, 0.3, 0.5, 0.7}, α=0.1 fixed | 30 each | `sweep_alpha_beta.csv` |
+| V × Φ | V × Φ | {0,1,3,5,10} × {0,0.5,1,2} | 30 each | `sweep_V_Phi.csv` |
+| Phase boundary | θ × Φ | 2D grid | 30 each | `cascade_phase_boundary.csv` |
+| Φ non-monotonicity | Φ | fine grid at multiple θ | 30 each | `cascade_phi_nonmonotonic.csv` |
+| Network topology | topology × degree × rewire | complete/ring/small-world | 30 each | `network_topology_sweep.csv` |
+| Cascade pathways | θ × Φ | detailed per-agent metrics | 30 each | `cascade_pathways.csv` |
+| Causal analysis | Granger causality | N={100–20,000} | — | `causal_analysis_summary.csv` |
+
+### Key Conclusions
+
+1. **Mechanism hierarchy**: Normative memory is the primary driver (23x speedup); lock-in adds marginal benefit (30x total). Without normative memory, convergence never occurs (0%).
+2. **θ_crystal sweet spot [2, 3]**: Too low → premature 50/50 split slows convergence; too high → confidence-DDM paradox (C→1 kills drift→0). Phase transition at θ ≈ 7.
+3. **O(1) scaling**: Convergence tick scales as N^0.028 ≈ O(1) with normative memory. Without it, condition A fails at N ≥ 200.
+4. **α/β insensitive**: Normative layer makes confidence asymmetry irrelevant; only lock-in-only (B) benefits from higher β.
+5. **Blind enforcement trap**: V=0 + Φ>0 is catastrophic (convergence drops to 10–27%). V ≥ 1 completely rescues. Information must precede enforcement.
+6. **Norm churn**: Full model (D) exhibits a turbulent phase (tick 30–50) where norms form/dissolve before stabilising — emergent, not designed.
+
+### Gaps & Missing Sweeps
+
+- **θ_crisis, λ_crisis, σ_min**: No systematic sweep. Currently set by hand to produce "survive one crisis, dissolve after two". Need to verify robustness range.
+- **α_σ (norm strengthening rate)**: No sweep. Slow recovery is assumed critical for cascade asymmetry but untested.
+- **k (compliance exponent)**: No sweep. k=2 is assumed; k=1 (linear) vs k=3 (sharper) could change cascade dynamics.
+- **σ₀ (initial norm strength)**: No sweep. Interacts with λ_crisis and σ_min in determining crisis survival count.
+- **w_base × w_max interaction**: No sweep beyond the fixed [2, 6]. Literature supports this range but model sensitivity is untested.
+- **θ_enforce × γ_signal**: No independent sweep. These two jointly control enforcement strength but are only tested indirectly via Φ.
+- **Heterogeneous agents**: All sweeps use homogeneous populations. Distributions of θ_crystal or θ_crisis across agents are unexplored.
+- **Large-N phase boundary**: θ × Φ boundary only computed at N={100, 1000, 5000}. Missing N={10,000, 20,000}.
+
+---
+
 *Reference derived from cascade_report_advisor.tex and source code (src/params.jl, src/types.jl, src/stages.jl, src/init.jl).*
