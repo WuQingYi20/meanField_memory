@@ -12,7 +12,7 @@ Agents play a symmetric coordination game {A, B}, equipped with experiential mem
 | 2a | Confidence update (correct) | `C ← C + α(1 − C)` | Additive increase on correct prediction |
 | 2b | Confidence update (wrong) | `C ← C(1 − β)` | Multiplicative decay on wrong prediction |
 | 3 | Memory window | `w = w_base + ⌊C · (w_max − w_base)⌋` | Maps confidence to observation window size |
-| 4 | DDM evidence accumulation | `e ← e + (1 − C) · (2·b_exp^A − 1) + s_push` | Drift-diffusion accumulator, gated by uncertainty |
+| 4 | DDM evidence accumulation | `e ← e + (1 − C) · f_diff + s_push` | Drift-diffusion accumulator; `f_diff = b_exp^A − b_exp^B` |
 | 5 | Crystallisation trigger | `\|e\| ≥ θ_crystal → r = sign(e), σ = σ₀` | Norm forms when evidence exceeds threshold |
 | 6a | Norm strengthening | `σ ← σ + α_σ(1 − σ)` | Slow additive increase on conforming observation |
 | 6b | Crisis decay | `σ ← λ_crisis · σ` (when `a ≥ θ_crisis`) | Sharp multiplicative decay when anomalies accumulate |
