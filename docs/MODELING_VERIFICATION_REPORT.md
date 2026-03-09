@@ -181,25 +181,96 @@ The DDM in the model is inspired by the Germar lab's program (2014, 2016, 2019, 
 
 #### Germar & Mojzisch (2019): "Learning of Social Norms Can Lead to a Persistent Perceptual Bias"
 
-**Experimental protocol**: Same color discrimination task. Three phases: (1) **pre-learning** baseline (no social information), (2) **learning** phase (majority opinions shown; norm established), (3) **extinction** phase (social information removed, participant works alone). DDM fitted per phase.
+**Experimental protocol** (from original paper, N=95 Exp1 + N=89 Exp2):
+- **Stimulus**: Same 128×128 pixel squares (47.5%, 50%, 52.5% orange).
+- **Social information (learning phase)**: Alleged responses of 3 simulated participants displayed per trial. In 66.7% of trials, all 3 responded unanimously norm-congruently; in 8.3% two congruent/one non; in 16.7% one congruent/two non; in 8.3% all non-congruent. Feedback shown AFTER participant's own response for 2500ms.
+- **Three phases**: (1) Learning (108 trials, social feedback shown), (2) Extinction (108 trials, alone — immediate continuation, no delay), (3) No forgetting delay in this paper (cf. Germar 2025 for delays).
+- **Key difference from Germar 2014**: Social information shown **after** participant responds (not before). This makes it a learning/reinforcement paradigm rather than a conformity paradigm.
 
-**Key finding**: Drift rate shifted toward majority during learning AND **persisted in extinction** — a lasting perceptual change, not transient compliance.
+**Quantitative DDM results** (Experiment 1, extinction phase, confirmatory):
+
+| DDM Parameter | Orange norm | Blue norm | Difference | Test | Effect |
+|---|---|---|---|---|---|
+| **Drift rate ν** (50% orange) | M=0.51, 95%CI [0.25, 0.76] | M=−0.32, 95%CI [−0.68, 0.03] | Δν = **0.83** | F(1,89)=14.30, p<.001 | η²G=.08, BF>79 |
+| **Starting point zr** | No significant difference | — | — | t(88)=0.95, p=.176 | d=0.29, BF=0.89 |
+
+**Experiment 2** (N=89, added sociality manipulation — low vs. high group cohesion):
+
+| DDM Parameter | Orange norm | Blue norm | Difference | Test | Effect |
+|---|---|---|---|---|---|
+| **Drift rate ν** (50% orange) | M=0.39, 95%CI [0.08, 0.70] | M=−0.62, 95%CI [−0.92, −0.32] | Δν = **1.01** | F(1,81)=21.60, p<.001 | η²G=.11, BF>100 |
+| **Starting point zr** | No significant difference | — | — | F(1,81)=0.12, p=.727 | BF=0.24 |
+
+**Critical additional findings from exploratory analyses**:
+
+1. **Temporal learning profile**: Multi-level regression showed norm conditions diverged gradually — difference increased by **~1% per block** (6 trials/block) during learning. Conditions started differing significantly after block 6 (~36 trials) in Exp1, after block 3 (~18 trials) in Exp2.
+2. **Mediation**: Individual learning slopes mediated extinction-phase drift rate differences (indirect effect a×b = 0.37, 95%CI [0.17, 0.70], p<.001 in Exp1; a×b = 0.24, 95%CI [0.03, 0.57], p=.07 in Exp2).
+3. **Stable extinction**: No decay across extinction blocks (b_block = −0.06, p=.510 in Exp1; −0.17, p=.249 in Exp2). The bias was **flat** throughout all 108 extinction trials.
+4. **Transient judgmental bias**: Starting point zr shifted only when previous-trial norm was **salient** (unanimous congruent). This was a trial-by-trial strategic shift, not a persistent learned effect. F(1,89)=4.31, p=.041 in Exp1 learning phase.
+5. **Sociality null effect**: High sociality (group interaction, shared identity) had **zero** moderating effect on any DDM parameter (all Fs < 0.95, ps > .333, BFs < 0.36). Norm effects are equally strong in minimal social contexts.
+
+**Variable-level mapping (updated with quantitative data)**:
 
 | Germar 2019 Variable | Model Variable | Mapping Quality | Divergences |
 |---|---|---|---|
-| **Learning phase** (repeated exposure to majority) | **Pre-crystallisation DDM** (evidence accumulates over ticks) | ⚠️ Partial: both involve gradual accumulation of social evidence. But Germar's learning comes from **explicit majority opinions**; model's accumulation comes from **experienced partner actions filtered through b_exp**. | See "Critical divergence" above: Germar separates social signal from perceptual evidence. Model merges them. |
-| **Extinction phase** (social info removed, bias persists) | **Post-crystallisation** (norm r persists, σ maintained) | ⚠️ **Partial**: Both show persistence after social input is removed. But the **mechanism** of persistence differs fundamentally. In Germar, persistence is a **learned perceptual bias** (drift rate stays shifted, a continuous parameter). In the model, persistence is a **discrete state** (r=A or r=B) maintained by a separate anomaly-crisis machinery. | Germar's persistent bias is continuous and gradually decays (see Germar 2025 on forgetting). Model's norm is discrete and only decays through the crisis mechanism (all-or-nothing dissolution). |
-| **Perceptual change** (not mere compliance) | **Norm as internal representation** (r distinct from b_exp) | ✅ Strong: Both frameworks distinguish between internal state change and behavioral compliance. Germar shows it via DDM (drift rate = perception, not starting point = bias). Model shows it by having r as a separate variable from b_exp. | — |
-| **Gradual learning** across trials | **Cumulative evidence** e over ticks | ✅ Strong: both involve gradual accumulation. | Model's accumulation is confidence-gated; Germar's is not. |
-| **No forgetting** in original extinction phase | **No decay** of σ without violations | ⚠️ Note: Germar 2025 ("How Does Forgetting Erode Norm Adherence?") shows the bias DOES decay over time. The model's norm also decays, but only through the anomaly-crisis pathway, not through passive forgetting. | Model may need a passive σ-decay mechanism to match Germar 2025. |
+| **Learning phase** (108 trials, social feedback after each response; conditions diverge at ~1%/block) | **Pre-crystallisation DDM** (evidence accumulates over ticks via f_diff) | ⚠️ **Structural parallel, different mechanism**: Both involve gradual evidence accumulation. But Germar's learning comes from **explicit post-trial social feedback** (3 confederates' responses); model's accumulation comes from **experienced partner actions filtered through b_exp**. Germar's DDM resets per-trial; model accumulates e across ticks. | Learning rate: Germar takes ~36 trials to diverge (Exp1). Model's (1−C)×f_diff accumulates continuously. No trial structure in model. |
+| **Extinction phase** (108 trials, alone; drift rate persists flat — Δν=0.83 in Exp1, 1.01 in Exp2) | **Post-crystallisation** (norm r persists, σ maintained by conformity) | ⚠️ **Both show persistence, different mechanisms**: In Germar, persistence is a **continuous parameter** (drift rate stays shifted at ~0.83). In the model, persistence is a **discrete state** (r=A or r=B) with strength σ. Critically: Germar's bias is **constant** during extinction (no block effect). Model's σ can only decrease through anomaly→crisis pathway. | Germar's persistence needs no maintenance mechanism — it's a learned neural weight. Model's σ requires active maintenance (no violations). |
+| **Perceptual bias (ν), NOT judgmental bias (zr)** | **DDM drift rate shift, NOT boundary shift** | ✅ **Strong validation**: Germar consistently finds ν shifts (p<.001, BF>79) with NO zr shift (BF=0.24–0.89 favoring null). Model correctly implements social influence as drift rate modification, not threshold modification. | Model is consistent with this core finding. |
+| **Transient zr shift** (only when previous trial was unanimously congruent; learning phase only) | **No direct analog** | ⚠️ **Missing**: Germar found a trial-by-trial strategic judgmental bias when social norm was salient. The model has no mechanism for transient decision-criterion shifts based on recent social signal salience. | The model's enforcement signal (s_push) is the closest analog but operates differently — it enters as drift, not as starting point shift. |
+| **Gradual learning** (~1%/block increase in norm-congruent responding) | **Cumulative evidence** e over ticks, gated by (1−C) | ⚠️ **Parallel but differences**: Both gradual. Germar's rate is ~1%/block (~6 trials). Model's accumulation rate is (1−C)×f_diff per tick. Model adds confidence gating (novel, not in Germar). | The (1−C) gate is from Rendell (2010), not Germar. |
+| **Learning→extinction decay** (ν effect drops from learning to extinction phase; interaction p<.040 in both experiments) | **Pre→post crystallisation transition** | ⚠️ **Different trajectory**: In Germar, the bias WEAKENS from learning to extinction (but remains significant). In the model, crystallisation is a **threshold event** — once triggered, σ starts at 0.8 and doesn't depend on how much evidence accumulated beyond θ_crystal. There is no "weakening" at the transition. | Model's discrete transition loses the information about how strong the social influence was during acquisition. |
+| **Sociality independence** (BF<0.36 against sociality effects) | **No sociality parameter** in model | ✅ **Consistent by design**: The model treats all partner interactions identically regardless of social closeness. Germar 2019 validates this: increasing sociality (group interaction, shared identity) had zero effect. | Supports the model's minimal social structure. |
 
-**Revised verification status**: ⚠️ **Strong but not "nearly one-to-one."** The Germar experiments validate the core principle (social influence → drift rate shift → persistent internal state change). But three significant divergences exist:
+#### Germar, Duderstadt & Mojzisch (2025): "How Does Forgetting Erode Norm Adherence?"
 
-1. **Social signal conflation**: Germar presents social information (majority opinion) as an explicit, separate input BEFORE the perceptual stimulus. The model has no separate social signal channel during pre-crystallisation — social information is folded into b_exp alongside experiential evidence. The enforcement signal (s_push) is the closest analog but is disabled by default (Φ=0).
+**Experimental protocol** (N=429, between-subjects):
+- **Stimulus**: Same 128×128 pixel squares (47.75%, 49.25%, 50.75%, 52.25% orange — **four** levels, finer than 2019's three).
+- **Social information (learning phase)**: Alleged summarized response statistics from 115 Prolific participants (e.g., "73% ORANGE and 27% BLUE"). Shown AFTER participant responds for 3000ms. On average 72.97% vs. 27.03% congruent.
+- **Three phases**: (1) Baseline (100 trials, alone, 10 min), (2) Learning (100 trials, social feedback, 10 min), (3) Test phase (100 trials, alone, 10 min).
+- **Critical manipulation — between-subjects forgetting delay**: Test phase administered at **0, 3, 7, or 28 days** after learning. Between-subjects design isolates forgetting from extinction.
+- **DDM model**: 24 parameters per participant (12 drift rates across 4 proportions × 3 phases, 3 zr, 3 a, 3 t0, 3 st0). Inter-trial variabilities sv, szr fixed at zero.
+
+**Key quantitative results** — norm effects in test phase (baseline-corrected, orange−blue norm):
+
+| Delay | Orange responses (Δ%) | Drift rate (Δν) | Starting point (Δzr) |
+|---|---|---|---|
+| **0 days** | MD=19.0, 95%CI [13.8, 24.1], p<.001, **BF>100** | MD=**1.47**, 95%CI [0.92, 2.02], p<.001, **BF>100** | MD=0.07, 95%CI [0.01, 0.12], p=.018, **BF=4.72** |
+| **3 days** | MD=11.9, 95%CI [6.5, 17.3], p<.001, **BF>100** | MD=0.16, 95%CI [−0.42, 0.72], p=.582, **BF=0.32** | MD=**0.15**, 95%CI [0.09, 0.20], p<.001, **BF>100** |
+| **7 days** | MD=11.4, 95%CI [5.8, 17.0], p<.001, **BF>100** | MD=0.37, 95%CI [−0.23, 0.97], p=.225, **BF=0.70** | MD=**0.08**, 95%CI [0.02, 0.14], p=.012, **BF=6.74** |
+| **28 days** | MD=3.52, 95%CI [−2.41, 9.44], p=.244, **BF=0.69** | MD=0.59, 95%CI [−0.27, 0.61], p=.069, **BF=1.78** | MD=−0.03, 95%CI [−0.09, 0.03], p=.358, **BF=0.12** |
+
+**The dual-decay discovery** (interaction: time × norm × phase × parameter: F(3,419)=4.46, p=.004):
+- **Perceptual bias (ν)** decays **rapidly**: extreme evidence at 0 days (BF>100), then **ambiguous** at 3, 7, and 28 days (BFs 0.32–1.78). Effectively gone after day 0.
+- **Judgmental bias (zr)** decays **slowly**: moderate evidence at 0, 3, AND 7 days (BFs 4.72–100+), disappears only at 28 days (BF=0.12).
+- **Overall norm adherence** (orange responses) persists via zr even after ν has decayed: significant at 7 days (BF>100) but gone at 28 days (BF=0.69).
+
+**Variable-level mapping**:
+
+| Germar 2025 Variable | Model Variable | Mapping Quality | Divergences |
+|---|---|---|---|
+| **Perceptual bias (ν) rapid decay** (gone by day 3) | **No analog** | ❌ **Critical gap**: The model has no mechanism for passive decay of the DDM evidence trace. Once crystallised, the norm's effect on behavior persists at σ=0.8 indefinitely until violations trigger anomaly-crisis. Germar 2025 shows that the perceptual component (analogous to the drift-rate contribution in the model's DDM) evaporates within days even without counter-evidence. | Model's persistence is too rigid — it cannot reproduce the rapid ν-decay without adding a time-dependent forgetting term. |
+| **Judgmental bias (zr) slow decay** (persists 7+ days) | **σ maintenance** (decays only via crisis) | ⚠️ **Partial**: Both show slow-decaying persistence. The model's σ is maintained until violations trigger crisis — functionally analogous to the more stable judgmental bias. But σ decays through discrete crisis events (70% drop per crisis), not through continuous gradual erosion. | Germar 2025's zr decays continuously over days. Model's σ is step-function (maintained → crisis → collapse). |
+| **Dual-decay** (fast ν + slow zr) | **Single-rate persistence** (σ governs both drift contribution and compliance) | ❌ **Structural mismatch**: Germar 2025 shows two components with DIFFERENT decay rates. The model has only one persistence parameter (σ) that governs everything post-crystallisation. There is no mechanism for the perceptual component to decay faster than the judgmental component. | The model would need σ_perceptual and σ_judgmental (or equivalent) to reproduce dual-decay. |
+| **Forgetting timescale** (~3 days for ν, ~28 days for zr) | **Tick timescale** (crisis every θ_crisis anomalies) | ⚠️ **Incommensurable**: Germar 2025 measures in real calendar days; model measures in game-tick events. No established mapping between the two. | The model could introduce passive σ-decay per tick to simulate forgetting, but the rate would be calibration without empirical anchor. |
+| **Forgetting isolated from extinction** (between-subjects design controls for continued behavioral experience) | **No comparable control** | ⚠️ **Important**: Germar 2025's between-subjects design means the test-phase participants had NO norm-relevant experience in the delay period. The model never simulates "idle" agents — agents always play and observe every tick. Passive forgetting (time without interaction) is not modeled. | Model would need an "inactive tick" concept to test forgetting vs. extinction separately. |
+| **Norm acquisition equally strong across conditions** (no time × norm × phase interaction for baseline→learning: p>.423 for all DVs) | **Crystallisation rate** | ✅ **Consistent**: Learning rate is independent of the upcoming forgetting manipulation, as expected. Both Germar and the model treat acquisition as a deterministic process given the same environment. | — |
+
+**Revised verification status** (updated with all three papers): ⚠️ **Strong on core principle; systematic divergences on dynamics.**
+
+The Germar program validates three things the model does correctly:
+1. **Social influence → drift rate shift** (not decision criterion): Confirmed across 4 studies, BF>100 consistently.
+2. **Persistence after social input removed**: Confirmed in Germar 2019 (short-term) and Germar 2025 (up to 7 days).
+3. **Starting point (zr) is NOT the primary channel**: Model correctly uses drift rate, not threshold, for social influence.
+
+But three significant divergences remain, and Germar 2025 adds a **fourth**:
+
+1. **Social signal conflation**: Germar presents social information (majority opinion) as an explicit, separate input. The model has no separate social signal channel during pre-crystallisation — social information is folded into b_exp alongside experiential evidence. The enforcement signal (s_push) is the closest analog but is disabled by default (Φ=0).
 
 2. **Temporal scale mismatch**: Germar's DDM operates per-trial (accumulate evidence → respond in ~500ms → reset). The model's DDM accumulates across ticks without reset — a fundamentally different process (more like a sequential probability ratio test than a standard DDM).
 
-3. **Persistence mechanism**: Germar's persistent bias is a continuous shift in drift rate. The model's crystallisation is a discrete threshold event that creates a qualitatively new state (r, σ) with its own maintenance/dissolution dynamics. The anomaly-crisis pathway has no counterpart in Germar.
+3. **Persistence mechanism**: Germar's persistent bias is a continuous parameter (drift rate stays shifted). The model's crystallisation is a discrete threshold event that creates a qualitatively new state (r, σ) with separate maintenance dynamics.
+
+4. **[NEW from Germar 2025] Dual-rate forgetting**: Perceptual bias (ν) decays rapidly (~3 days), judgmental bias (zr) decays slowly (~28 days). The model has a **single** persistence parameter (σ) with **no passive decay** — it can only decrease through the discrete anomaly-crisis pathway. The model cannot reproduce the empirically observed pattern where the perceptual component fades while the judgmental component endures. This is the most consequential divergence for the model's dynamics, because it means the model over-predicts norm persistence in the absence of violations.
 
 ### 4.2 Confidence Gating: (1−C) Modulation
 
@@ -263,7 +334,7 @@ The DDM in the model is inspired by the Germar lab's program (2014, 2016, 2019, 
 | Dissolution when σ < σ_min = 0.1 | Norms can be abandoned | **Bicchieri (2006)** — Norms require conditional compliance and normative expectations. When expectations are repeatedly violated (anomaly accumulation), the norm can dissolve. The two-crisis requirement (σ=0.8 → 0.24 → 0.072 < 0.1) means norms are robust to single crises. |
 | Post-dissolution re-entry to DDM (e=0) | Norm-free agents can form new norms | The "one-way ratchet" effect: dissolved agents re-enter a now-biased environment and crystallise toward the majority. This creates the cascade's exponential acceleration. |
 
-**Verification status**: ✅ The pathway is internally consistent and maps to established patterns in norm dynamics.
+**Verification status**: ⚠️ The pathway is internally consistent but **challenged by Germar 2025**: empirical norm forgetting follows continuous dual-rate decay (perceptual bias fast, judgmental bias slow), not the model's discrete anomaly→crisis→dissolution mechanism. The model's all-or-nothing dissolution has no empirical counterpart — real norms erode gradually, not catastrophically. See §4.1 Germar 2025 mapping for details.
 
 ---
 
@@ -279,9 +350,9 @@ The DDM in the model is inspired by the Germar lab's program (2014, 2016, 2019, 
 | **Confidence** | Asymmetric update (AIMD) from trust asymmetry | Slovic 1993 | ⚠️ Direction Strong; Form & Values Weak (see §8.1) |
 | **Confidence** | Bridge role via metacognitive monitoring | Nelson & Narens 1990 | ✅ Strong |
 | **Confidence** | (1−C) gate from "copy when uncertain" | Rendell et al. 2010, Boyd & Richerson 1985 | ✅ Strong |
-| **DDM** | Color judgment → f_diff (drift rate from evidence) | Germar et al. 2014 | ✅ Exceptional |
-| **DDM** | Majority opinion → enforcement signal | Germar et al. 2014 | ✅ Exceptional |
-| **DDM** | Persistent bias → crystallisation + maintenance | Germar & Mojzisch 2019 | ✅ Exceptional |
+| **DDM** | Color judgment → f_diff (drift rate from evidence) | Germar et al. 2014 | ✅ Strong (core principle validated; see §4.1 for variable-level divergences) |
+| **DDM** | Majority opinion → enforcement signal | Germar et al. 2014 | ⚠️ Partial (Germar's social signal is explicit & always-on; model's enforcement is conditional; see §4.1) |
+| **DDM** | Persistent bias → crystallisation + maintenance | Germar & Mojzisch 2019 | ⚠️ Partial (continuous bias vs discrete crystallisation; see §4.1) |
 | **DDM** | Threshold → Granovetter adoption analog | Granovetter 1978, Ratcliff 2008 | ⚠️ Superficial analogy only (see §8.2) |
 | **Enforcement** | Social pressure on DDM drift rate | Germar 2014 | ✅ Strong |
 | **Post-crystal** | Anomaly-crisis-dissolution pathway | Bicchieri 2006, Slovic 1993 | ✅ Moderate |
@@ -292,13 +363,13 @@ The DDM in the model is inspired by the Germar lab's program (2014, 2016, 2019, 
 |---|---|---|
 | No direct experimental evidence for the specific AIMD parameters (α=0.1, β=0.3) | Low | Slovic (1993) establishes the asymmetry principle; exact ratio is calibration. |
 | θ_crystal = 3.0 is calibration, not empirically derived | Low | The DDM boundary in Germar (2014) was fit to data but in a different task; the value 3.0 is from model calibration. |
-| Post-crystallisation anomaly-crisis pathway is novel | Medium | No direct experimental analog for the discrete crisis-dissolution mechanism. It is inspired by Bicchieri's conditional compliance framework but operationalized differently. The closest analog is Germar (2019)'s extinction phase, but that study did not observe full norm dissolution. |
+| Post-crystallisation anomaly-crisis pathway is novel | Medium → **High** | No direct experimental analog for the discrete crisis-dissolution mechanism. **Germar 2025 now directly challenges it**: empirical norm erosion follows continuous dual-rate decay (ν fast, zr slow), not discrete crisis events. The model's all-or-nothing dissolution is contradicted by the gradual empirical pattern. |
 | k=2 compliance exponent lacks direct empirical grounding | Low | It produces reasonable compliance profiles (σ=0.8 → compliance=0.64) but is calibration-based. |
 | Enforcement DD-7 conditional logic is novel | Low | The "enforcement replaces anomaly only if partner is pre-crystallised" rule has no direct empirical counterpart, but is a well-motivated engineering decision to prevent norm deadlock. |
 
 ### Overall Assessment
 
-**The modeling choices in `cascade_report_advisor.tex` are well-grounded**. The macro-architecture (three parallel systems) is strongly supported by multiple memory systems neuroscience, dual-process theory, and metacognitive monitoring frameworks. The internal mappings within each system trace cleanly to their empirical sources. The DDM-crystallisation system has the strongest empirical grounding, with Germar (2014, 2019) providing an almost one-to-one experimental analog. The main gaps are in exact parameter values (calibration rather than empirical derivation) and the post-crystallisation anomaly-crisis pathway, which is a novel mechanism without direct experimental precedent.
+**The modeling choices in `cascade_report_advisor.tex` are well-grounded at the level of core principles but diverge from empirical findings at the level of dynamics.** The macro-architecture (three parallel systems) is strongly supported by multiple memory systems neuroscience, dual-process theory, and metacognitive monitoring frameworks. The DDM-crystallisation system correctly implements the core finding that social influence operates via drift rate (not decision criterion), validated by Germar (2014, 2016, 2019). However, Germar 2025 reveals a **fundamental challenge**: empirical norm erosion follows continuous dual-rate decay (perceptual bias fast, judgmental bias slow), while the model's norm persistence relies on a single strength parameter (σ) with discrete crisis-based dissolution. This means the model over-predicts norm persistence in the absence of violations and cannot reproduce the empirically observed gradual erosion pattern.
 
 ---
 
@@ -311,6 +382,7 @@ The DDM in the model is inspired by the Germar lab's program (2014, 2016, 2019, 
 - Evans, J.St.B.T. & Stanovich, K.E. (2013). Dual-process theories of higher cognition: Advancing the debate. *Perspectives on Psychological Science*, 8(3), 223–241.
 - Germar, M., Schlemmer, A., Krug, K., Voss, A., & Mojzisch, A. (2014). Social influence and perceptual decision making: A diffusion model analysis. *Personality and Social Psychology Bulletin*, 40(2), 217–231.
 - Germar, M. & Mojzisch, A. (2019). Learning of social norms can lead to a persistent perceptual bias: A diffusion model approach. *Journal of Experimental Social Psychology*, 80, 40–49.
+- Germar, M., Duderstadt, V.H. & Mojzisch, A. (2025). How does forgetting erode norm adherence? A diffusion model approach. *Social Psychological and Personality Science*, 1–13. DOI:10.1177/19485506251379526.
 - Granovetter, M. (1978). Threshold models of collective behavior. *American Journal of Sociology*, 83(6), 1420–1443.
 - Hertwig, R. & Pleskac, T.J. (2010). Decisions from experience: Why small samples? *Cognition*, 115(2), 225–237.
 - Kahneman, D. (2011). *Thinking, Fast and Slow*. Farrar, Straus and Giroux.
@@ -573,6 +645,7 @@ Replacing the original Part VI matrix with honest ratings:
 | **DDM** | Drift rate from evidence → f_diff | Germar 2014 | ✅ Strong (core principle; see §4.1 divergences) |
 | **DDM** | Majority opinion → enforcement signal | Germar 2014 | ⚠️ **Partial**: Germar's social signal is explicit & always-on; model's enforcement is conditional & disabled by default (§4.1) |
 | **DDM** | Persistent bias → crystallisation | Germar & Mojzisch 2019 | ⚠️ **Partial**: continuous bias vs discrete crystallisation; different persistence mechanisms (§4.1) |
+| **DDM** | Norm forgetting dynamics | Germar et al. 2025 | ❌ **Structural mismatch**: dual-rate forgetting (fast ν-decay, slow zr-decay) cannot be reproduced by model's single σ with no passive decay (§4.1) |
 | **DDM** | θ_crystal → Granovetter analog | Granovetter 1978 | ⚠️ **Superficial analogy** (see §8.2) |
 | **DDM** | θ_crystal as DDM decision boundary | Ratcliff & McKoon 2008 | ✅ Strong |
 | **DDM** | No additive noise (DD-12) | Brunton et al. 2013 | ✅ Strong |
@@ -582,3 +655,272 @@ Replacing the original Part VI matrix with honest ratings:
 | **Pipeline** | Synchronous updating | *Modeling convenience* | ⚠️ **Potential artifact** (see §7.2) |
 | **Scaling** | O(1) convergence time | *Model result, narrow N range* | ⚠️ **Under-tested** (see §7.4, §8.3) |
 | **Parsimony** | DDM needed vs. simpler norm rules | *Ablation incomplete* | ❌ **Untested against simpler alternatives** (see §7.3) |
+
+---
+
+## Part IX: Literature-Based Solutions for Identified Gaps
+
+> **Method**: Five parallel literature searches targeting the six most critical gaps.
+> Each subsection provides: the gap, candidate solutions from the literature,
+> concrete adaptation paths, and a recommended direction.
+
+---
+
+### 9.1 Gap: Dual-Rate Forgetting (Germar 2025 Structural Mismatch)
+
+**Problem**: Model has single σ with no passive decay. Germar 2025 shows perceptual bias (ν) decays rapidly (~3 days) while judgmental bias (zr) decays slowly (~28 days). The model cannot reproduce this.
+
+#### Candidate 1: Smith, Ghazizadeh & Shadmehr (2006) — Dual-Rate State-Space Model ⭐ BEST FIT
+
+**Source**: "Interacting Adaptive Processes with Different Timescales Underlie Short-Term Motor Learning." *PLoS Biology*, 4(6), e179.
+
+**Mechanism**: Two parallel state variables with different retention/learning rates:
+
+```
+x(n) = x_fast(n) + x_slow(n)
+x_fast(n+1) = A_f × x_fast(n) + B_f × e(n)    // A_f ≈ 0.59, B_f ≈ 0.21
+x_slow(n+1) = A_s × x_slow(n) + B_s × e(n)    // A_s ≈ 0.992, B_s ≈ 0.02
+```
+
+Fast process: learns quickly (B_f high) but forgets quickly (A_f far from 1). Slow process: learns slowly (B_s low) but retains (A_s ≈ 1). Explains savings, spontaneous recovery, and anterograde interference in motor learning.
+
+**Adaptation**: Split σ into σ_fast (perceptual channel, maps to Germar's ν) and σ_slow (judgmental channel, maps to Germar's zr). Each tick:
+- Passive decay: `σ_fast *= A_fast`, `σ_slow *= A_slow`
+- Reinforcement on conformity: `σ_fast += B_fast × (1 − σ_fast)`, `σ_slow += B_slow × (1 − σ_slow)`
+- Effective compliance: `w × σ_fast^k + (1−w) × σ_slow^k`
+
+**Cost**: +3 parameters (A_fast, A_slow, w_perceptual). Eliminates anomaly-crisis machinery (−5 parameters: θ_crisis, λ_crisis, σ_min, α_σ, anomaly counter). Net: −2 parameters.
+
+#### Candidate 2: Complementary Learning Systems — McClelland, McNaughton & O'Reilly (1995); Kumaran, Hassabis & McClelland (2016)
+
+**Mechanism**: Hippocampal system (fast learning, fast forgetting, pattern-separated) vs. neocortical system (slow learning, slow forgetting, distributed). Memory consolidation transfers knowledge from hippocampus to neocortex via replay.
+
+**Mapping**: Perceptual bias = hippocampal-like (fast encode, fast decay). Judgmental bias = neocortical-like (slow consolidation, persistent). Could add consolidation transfer: each conforming tick, fraction of σ_fast transfers to σ_slow.
+
+**Strength**: Deep neuroscientific grounding. **Weakness**: More complex than Smith model, harder to parameterize.
+
+#### Candidate 3: Model-Free vs Model-Based Reinforcement Learning — Cushman (2013); Crockett (2013); Peysakhovich & Rand (2016)
+
+**Mechanism**: Model-free (habitual, cached action values) decays slowly; model-based (flexible, outcome-based) decays rapidly. Peysakhovich & Rand (2016) showed experimentally that norm internalization creates model-free "habits of virtue" that persist into novel contexts.
+
+**Mapping**: Judgmental bias (zr) = model-free cached norm preference (slow decay). Perceptual bias (ν) = model-based active evidence weighting (fast decay, needs recomputation).
+
+**Strength**: Direct experimental evidence from economic games. **Weakness**: Functional form less specified than Smith model.
+
+#### Candidate 4: Forgetting Functions — Wixted & Ebbesen (1991); Wixted (2004)
+
+Power-law forgetting `R(t) = a × t^(−b)` fits empirical data better than exponential for long horizons. Dual-rate exponential (σ_fast + σ_slow) approximates power law at the aggregate level (Wixted 2004). Per-tick exponential multiplier is simplest to implement.
+
+**Recommendation**: **Use Smith et al. (2006) dual-rate state-space model.** It is the most parsimonious, mathematically explicit, and empirically fitted. The dual-rate split directly addresses Germar 2025's finding. Combined with CLS/model-free framing for theoretical justification.
+
+---
+
+### 9.2 Gap: AIMD Confidence Update — No Empirical Grounding for Functional Form
+
+**Problem**: C + α(1−C) on match / C(1−β) on mismatch is borrowed from TCP congestion control. Slovic 1993 provides qualitative direction (β > α) but no functional form. α=0.1, β=0.3 are pure calibration.
+
+#### Candidate 1: Nassar et al. (2010) — Approximate Bayesian Change-Point Detection ⭐ BEST FIT
+
+**Source**: "An Approximately Bayesian Delta-Rule Model Explains the Dynamics of Belief Updating in a Changing Environment." *Journal of Neuroscience*, 30(37), 12366–12378.
+
+**Mechanism**:
+```
+μ̂(t+1) = μ̂(t) + α_t × δ_t           // belief update (δ = prediction error)
+α_t = Ω_t + (1 − Ω_t) / (r̂_t + 1)   // adaptive learning rate
+Ω_t = H × U(x_t) / [H × U(x_t) + (1−H) × N(x_t | μ̂_t, σ̂_t)]  // change-point probability
+r̂(t+1) = (1 − Ω_t) × (r̂_t + 1) + Ω_t  // run length
+```
+
+**Key property**: The asymmetry is **emergent, not parametric**. A single large prediction error spikes Ω close to 1 (resetting learning rate to maximum). Recovery requires many small-error trials to rebuild run length r̂. This IS "trust is fragile" derived from Bayesian principles.
+
+**Free parameters**: 1 (hazard rate H). Current AIMD has 2 (α, β). Empirical fits: H fitted per subject, individual mean learning rates 0.07–0.71.
+
+**Adaptation**: Replace AIMD with:
+- Track run length r̂ (replaces separate C variable conceptually, or C = 1 − α_t)
+- Compute Ω per tick from prediction error magnitude
+- α_t emerges from Ω and r̂
+- Connects to existing Behrens (2007) citation (Nassar is the direct successor)
+
+#### Candidate 2: Pearce-Hall (1980) with Dual Rates — Modified Associability Model
+
+**Mechanism**:
+```
+ΔV(n) = S × α(n) × λ(n)
+α(n+1) = γ × |λ(n) − V(n)| + (1−γ) × α(n)   // γ ≈ 0.5
+```
+
+Associability α tracks absolute prediction error. Correct predictions → α decreases (less learning). Wrong predictions → α increases (more learning). Symmetric in standard form; adding dual γ+/γ− gives AIMD-like asymmetry.
+
+**Strength**: Decades of animal and human conditioning data. **Weakness**: Requires dual-rate modification to produce asymmetry; less principled than Nassar.
+
+#### Candidate 3: Behrens et al. (2007) — Bayesian Volatility Estimation
+
+Already cited in the model. Adaptive learning rate from estimated volatility. Symmetric (does not inherently distinguish positive from negative errors). Would need asymmetry bolt-on.
+
+#### Other findings (negative results):
+- **Poortinga & Pidgeon (2003/2004)**: Qualitative only, no equations
+- **Cvetkovich et al. (2002)**: Qualitative only
+- **Yaniv & Kleinberger (2000)**: WOA ≈ 0.24 (static measure, not dynamic update)
+- **Mayer, Davis & Schoorman (1995)**: Conceptual framework, no equations
+- **Lefebvre et al. (2017)**: Dual-rate RL, but finds α+ > α− (optimism bias — OPPOSITE of Slovic for reward learning)
+
+**Recommendation**: **Use Nassar et al. (2010).** Single free parameter (H), emergent asymmetry, fitted to human data, direct successor to Behrens (2007) already cited. Eliminates the "borrowed from TCP" criticism entirely.
+
+---
+
+### 9.3 Gap: Discrete Crystallisation — No Empirical Support for Threshold Event
+
+**Problem**: The DDM accumulates e until |e| ≥ θ_crystal, then norm "crystallises" as a discrete jump (r = A or B, σ = 0.8). Germar 2019/2025 show norm internalization is continuous — drift rate grows gradually during learning and decays gradually during forgetting.
+
+#### Candidate 1: DDM-as-Bayesian-Posterior via Sigmoid ⭐ MOST ELEGANT
+
+**Source**: Bogacz, Brown, Moehlis, Holmes & Cohen (2006). "The physics of optimal decision making: A formal analysis of models of performance in two-alternative forced-choice tasks." *Psychological Review*, 113(4), 700–765.
+
+**Key insight**: The DDM's accumulated evidence e is mathematically the log-likelihood ratio log(P(data|A)/P(data|B)). The Bayesian posterior is:
+```
+P(A | data) = sigmoid(e) = 1 / (1 + exp(−e))
+```
+
+Replace the step function `if |e| ≥ θ` with continuous output:
+```
+norm_strength = tanh(e / T_norm)     // in [−1, 1]
+compliance = |norm_strength|          // in [0, 1]
+direction = sign(norm_strength)       // A or B
+```
+
+**Advantages**: (a) Eliminates artificial pre/post distinction, (b) naturally produces gradual decay when evidence decays, (c) mathematically principled (IS the Bayesian posterior), (d) minimal code change.
+
+#### Candidate 2: Leaky Competing Accumulator — Usher & McClelland (2001)
+
+**Mechanism**:
+```
+dx_A/dt = I_A − λ × x_A − β × x_B + noise
+dx_B/dt = I_B − λ × x_B − β × x_A + noise
+```
+
+Leakage parameter λ causes evidence to decay passively. No absorbing barriers needed. Output is continuous relative activation. Directly models forgetting via λ.
+
+**Adaptation**: Replace DDM with LCA. Evidence leaks each tick at rate λ. No crystallisation event. Norm strength = relative activation. Unifies pre- and post-crystallisation into single continuous regime.
+
+**Cost**: +1 parameter (λ_leak). Eliminates crystallisation machinery.
+
+#### Candidate 3: DINO Model — Andrighetto, Conte, Castelfranchi (2010)
+
+Multi-level norm internalization: recognition → adoption → compliance → deep internalization. Each level is more persistent. Provides qualitative framework but no simple equations.
+
+#### Candidate 4: Bounded Confidence Models — Deffuant-Weisbuch
+
+Continuous opinion dynamics. No threshold. Convergence is emergent. Lacks norm persistence mechanism without additional machinery.
+
+**Recommendation**: **Use sigmoid(e/T) readout (Candidate 1)**, optionally combined with LCA leakage (Candidate 2). The sigmoid readout is the minimal change — keep the DDM accumulation exactly as is, replace the threshold check with a continuous function. If passive forgetting is also needed, add leakage `e *= (1 − λ_leak)` per tick. This simultaneously solves the discrete-crystallisation gap AND the forgetting gap.
+
+---
+
+### 9.4 Gap: Synchronous Pipeline — Potential Cascade Artifact
+
+**Problem**: All N agents complete each pipeline stage before any starts the next. Synchronous updating can create artificial temporal correlations, especially in cascade/tipping dynamics.
+
+#### Key Literature Findings
+
+| Paper | Finding | Relevance |
+|---|---|---|
+| **Huberman & Glance (1993)** PNAS | Nowak & May's spatial cooperation **disappears** under async update. Mechanism: synchronous updating freezes the world during each round, preventing within-round information propagation, artificially stabilizing structures. | **Directly relevant**: your cascade may be stabilized/synchronized by the frozen-snapshot artifact. |
+| **Fatès (2014)** JCA | α=1 (perfect synchrony) is often a **singular point** in update-scheme parameter space. Some rules show discontinuity at α=1: any departure from perfect synchrony changes behavior qualitatively. | Your model may exist at a singularity — even α=0.99 could produce different cascade timing. |
+| **Axtell (2001)** Santa Fe Institute | Systematic comparison of 4 activation regimes. In firm formation model, synchronous showed **positive** relationship between growth and size; random activation showed **negative (reversed)** relationship. Qualitative direction flipped. | Not just quantitative differences — qualitative conclusions can reverse. |
+| **Young (1993, 2015)** | Convention formation uses random agent selection per period. Stochastic stability theory requires ergodic Markov chain — synchronous updating can violate aperiodicity. | Your paper's main comparison model (Young) uses async; comparing sync model to async theory is apples-to-oranges. |
+| **Rajewsky et al. (1998)** | Phase diagram (location and nature of phase transitions) changes qualitatively with update scheme in ASEP. | Cascade thresholds measured under sync cannot be trusted to hold under async. |
+| **Caron-Lormier et al. (2008)** | Sync vs async differences are largest at high population density and complex multi-stage interactions. | Your 6-stage pipeline is exactly the high-complexity regime where differences are maximal. |
+| **Shoham & Tennenholtz (1997)** | Update frequency and memory flush interval significantly impact convention emergence efficiency. | High-frequency synchronous updating may artificially accelerate convention lock-in. |
+
+#### Recommended Update Schemes to Test
+
+| Scheme | Definition | Implementation Complexity |
+|---|---|---|
+| **Random-sequential** (standard robustness check) | All N agents update once per tick, but in a fresh random permutation. Each agent sees already-updated states of agents processed before it. | Moderate: restructure `run_tick!` to process agents sequentially in random order. |
+| **α-asynchronous** (Fatès) | Each agent updates with probability α per tick, independently. Test α ∈ {0.5, 0.9, 0.99, 1.0}. | Easy: add Bernoulli gate before each agent's update. |
+| **Poisson clocks** | Each agent has independent exponential timer. Most realistic for social systems. | Hard: requires event-driven simulation architecture. |
+
+**Recommendation**: Implement **random-sequential** as the primary robustness check. It is the standard in the norm/convention literature (Young 1993) and requires moderate restructuring. Report cascade timing under both sync and random-sequential. If qualitative results hold, the synchronous pipeline is defensible. If not, the cascade may be an artifact.
+
+---
+
+### 9.5 Gap: Parsimony — DDM vs. Simpler Normative Mechanisms
+
+**Problem**: The DDM+crystallisation+anomaly+crisis machinery has ~16 parameters. EWA with 4 parameters converges faster at N=100. No comparison against simpler norm formation rules.
+
+#### Comparison Table of Alternative Mechanisms
+
+| Mechanism | Free Params | Persistent Norms | Cascades | N-Scaling | Env. Adaptation |
+|---|---|---|---|---|---|
+| **Current DDM+crystal+crisis** | ~16 | Yes (crystallisation) | Yes (crisis triggers) | Under study | Yes (anomaly detection) |
+| **Current EWA** | 4 | Yes (attraction lock-in) | Weak (smooth logit) | Under study | Weak (φ decay) |
+| **Self-tuning EWA** (Ho, Camerer & Chong 2007) | **1** (λ only) | Yes | Weak | No | Partial (δ self-tunes) |
+| **Young's adaptive play** (1993) | **3** (m, k, ε) | Yes (exponential in 1/ε) | **Yes (tipping)** | Rapidly increasing in N | Via trembles (ε) |
+| **Conformist transmission** (Boyd & Richerson 1985) | 1 (D) | Moderate | Gradual S-curve | No | None |
+| **Granovetter threshold** (1978) | 2 (θ, w) | Yes (once adopted) | **Strong** | On networks | None |
+| **Voter model** | 0 | **No** | No | **O(N)** well-known | N/A |
+| **Fictitious play** | 0–1 | Very strong | No | Exponential (bad) | **None** |
+| **Moran process** | 1 (β) | Metastable | Yes | **O(N) to O(N log N)** | None |
+
+#### Priority Ablation Candidates
+
+**1. Young's Adaptive Play (3 params)** — Strongest minimal alternative. Produces BOTH persistence AND cascades. Memory/sample mechanism (m, k) ↔ DDM evidence window. Trembles (ε) ↔ anomaly/crisis. Rigorous stochastic stability theory. **Weakness**: N-scaling known to be poor (rapidly increasing).
+
+**2. Self-Tuning EWA (1 param)** — Ho, Camerer & Chong (2007) replace δ and φ with experience-dependent functions, leaving only λ (logit sensitivity). Naturally produces norm persistence via attraction lock-in. Already partially implemented in codebase. **Key test**: does it produce cascades at high λ?
+
+**3. Threshold + Conformist Hybrid (2–3 params)** — "Adopt norm X if > θ fraction of last w observations are X, with conformist amplification D." Gives cascades (threshold) + persistence (conformist bias). Minimal, interpretable.
+
+**4. Voter Model (0 params)** — Null model benchmark. Consensus time O(N) on complete graphs. If DDM cannot beat this scaling, the complexity is unjustified.
+
+**Recommendation**: Run N-sweep {100, 500, 1000, 5000, 20000} for: (a) self-tuning EWA, (b) Young's adaptive play, (c) voter model, alongside the existing DDM. Compare convergence time scaling, cascade sharpness, and norm persistence. This is the single most important missing experiment.
+
+---
+
+### 9.6 Integrated Proposal: Minimal Model Revision
+
+Combining the best candidates from §9.1–9.5 yields a coherent model revision that addresses ALL major gaps simultaneously:
+
+| Current Mechanism | Replacement | Source | Net Parameter Change |
+|---|---|---|---|
+| AIMD confidence (α=0.1, β=0.3) | Nassar (2010) change-point detector (H) | Bayesian derivation | −1 (2 → 1) |
+| Discrete crystallisation (θ_crystal) | Sigmoid readout: σ = tanh(e/T) | Bogacz (2006) DDM↔posterior | 0 (θ → T) |
+| No passive decay | LCA leakage: e *= (1−λ) per tick | Usher & McClelland (2001) | +1 |
+| Single σ persistence | Dual-rate: σ_fast + σ_slow | Smith et al. (2006) | +2 (A_f, A_s) |
+| Anomaly-crisis-dissolution (5 params) | **Eliminated** — forgetting is passive via leakage + dual-rate | — | −5 |
+| Synchronous pipeline | Random-sequential update | Young (1993), Axtell (2001) | 0 |
+
+**Net parameter change**: 16 → ~13, with ALL gap-specific mechanisms replaced by empirically grounded alternatives.
+
+**What is preserved**: (a) FIFO experiential memory, (b) confidence-gated DDM evidence accumulation, (c) enforcement signaling, (d) the core cascade mechanism (norm spread via partner observation). The revision changes HOW norms crystallise and decay, not the fundamental architecture.
+
+**What is gained**: (a) Continuous norm strength matching Germar 2019 gradual learning, (b) dual-rate forgetting matching Germar 2025, (c) principled confidence dynamics from Bayesian change-point detection, (d) elimination of novel anomaly-crisis pathway (replaced by well-grounded passive decay), (e) robustness to update schedule.
+
+---
+
+### 9.7 References (Part IX)
+
+- Andrighetto, G., Conte, R. & Turrini, P. (2010). Emergence in the loop: Simulating the two way dynamics of norm innovation. In *Simulating Interacting Agents and Social Phenomena*, LNCS, Springer.
+- Axtell, R. (2001). Effects of interaction topology and activation regime in several multi-agent systems. In *MABS 2000*, LNCS 1979, 33–48.
+- Bogacz, R., Brown, E., Moehlis, J., Holmes, P. & Cohen, J.D. (2006). The physics of optimal decision making. *Psychological Review*, 113(4), 700–765.
+- Boyd, R. & Richerson, P.J. (1985). *Culture and the Evolutionary Process*. University of Chicago Press.
+- Camerer, C. & Ho, T.-H. (1999). Experience-weighted attraction learning in normal form games. *Econometrica*, 67(4), 827–874.
+- Caron-Lormier, G. et al. (2008). Asynchronous and synchronous updating in individual-based models. *Ecological Modelling*, 212, 522–527.
+- Crockett, M.J. (2013). Models of morality. *Trends in Cognitive Sciences*, 17(8), 363–366.
+- Cushman, F. (2013). Action, outcome, and value: A dual-system framework for morality. *Personality and Social Psychology Review*, 17(3), 273–292.
+- Fatès, N. (2014). A guided tour of asynchronous cellular automata. *Journal of Cellular Automata*, 9(5-6), 387–416.
+- Granovetter, M. (1978). Threshold models of collective behavior. *American Journal of Sociology*, 83(6), 1420–1443.
+- Ho, T.-H., Camerer, C. & Chong, J.-K. (2007). Self-tuning experience weighted attraction learning in games. *Journal of Economic Theory*, 133(1), 177–198.
+- Huberman, B.A. & Glance, N.S. (1993). Evolutionary games and computer simulations. *PNAS*, 90(16), 7716–7718.
+- Kumaran, D., Hassabis, D. & McClelland, J.L. (2016). What learning systems do intelligent agents need? *Trends in Cognitive Sciences*, 20(7), 512–534.
+- McClelland, J.L., McNaughton, B.L. & O'Reilly, R.C. (1995). Why there are complementary learning systems in the hippocampus and neocortex. *Psychological Review*, 102(3), 419–457.
+- Nassar, M.R., Wilson, R.C., Heasly, B. & Gold, J.I. (2010). An approximately Bayesian delta-rule model. *Journal of Neuroscience*, 30(37), 12366–12378.
+- Pearce, J.M. & Hall, G. (1980). A model for Pavlovian learning. *Psychological Review*, 87(6), 532–552.
+- Peysakhovich, A. & Rand, D.G. (2016). Habits of virtue. *Management Science*, 62(3), 631–647.
+- Rajewsky, N. et al. (1998). The asymmetric exclusion process: Comparison of update procedures. *Journal of Statistical Physics*, 92, 151–194.
+- Shoham, Y. & Tennenholtz, M. (1997). On the emergence of social conventions. *Artificial Intelligence*, 94, 139–166.
+- Smith, M.A., Ghazizadeh, A. & Shadmehr, R. (2006). Interacting adaptive processes with different timescales. *PLoS Biology*, 4(6), e179.
+- Usher, M. & McClelland, J.L. (2001). The time course of perceptual choice. *Psychological Review*, 108(3), 550–592.
+- Wixted, J.T. & Ebbesen, E.B. (1991). On the form of forgetting. *Psychological Science*, 2(6), 409–415.
+- Wixted, J.T. (2004). The psychology and neuroscience of forgetting. *Annual Review of Psychology*, 55, 235–269.
+- Young, H.P. (1993). The evolution of conventions. *Econometrica*, 61(1), 57–84.
+- Young, H.P. (2015). The evolution of social norms. *Annual Review of Economics*, 7, 359–387.
